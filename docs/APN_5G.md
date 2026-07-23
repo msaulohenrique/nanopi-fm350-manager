@@ -14,6 +14,19 @@ Este guia explica como configurar o APN para conexão 5G/LTE no modem Fibocom FM
 | **Hypecon**          | `hypecon.br` ou `internet` | IPv4v6  | None         | MVNO - Verificar no app/site |
 | **Surf MVNO**        | `surf.br` ou `internet` | IPv4v6     | None         | Depende da credenciada      |
 
+## DNS Recomendados
+
+| Provedor              | DNS Primário          | DNS Secundário        | Recomendado para          |
+|-----------------------|-----------------------|-----------------------|---------------------------|
+| **Google**            | `8.8.8.8`             | `8.8.4.4`             | Geral / Velocidade        |
+| **Cloudflare**        | `1.1.1.1`             | `1.0.0.1`             | Privacidade + Velocidade  |
+| **Quad9**             | `9.9.9.9`             | `149.112.112.112`     | Segurança (bloqueio malware) |
+| **OpenDNS**           | `208.67.222.222`      | `208.67.220.220`      | Controle parental         |
+| **Vivo**              | `177.11.0.0`          | `177.11.0.1`          | Operadora oficial         |
+| **Claro**             | `200.149.0.0`         | `200.149.0.1`         | Operadora oficial         |
+
+> **Dica**: Use Cloudflare (`1.1.1.1`) para melhor performance e privacidade na maioria dos casos.
+
 ### Links Importantes
 
 - **Hypecon**: [https://hypecon.gg/](https://hypecon.gg/)
