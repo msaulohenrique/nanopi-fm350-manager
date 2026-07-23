@@ -1,21 +1,23 @@
-# NanoPi FM350 Manager
+# 🌐 NanoPi FM350 Manager
 
-Gateway 4G/5G profissional para NanoPi NEO3 Plus + Fibocom FM350-GL.
+**Gateway 5G/4G profissional open-source para NanoPi NEO3 Plus + Fibocom FM350-GL**
 
-## Instalação
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-0.1.0-orange.svg)
 
-1. Descompacte o ZIP no NanoPi.
-2. `sudo bash install.sh`
+## Instalação Rápida
 
-Acesse: http://nanopi-5g.local or http://IP
+```bash
+unzip nanopi-fm350-manager.zip
+cd nanopi-fm350-manager
+sudo bash install.sh
+```
 
-**Usuário:** admin
-**Senha:** configurada durante instalação
+Acesse: http://nanopi-5g.local
 
-## Recursos
-- Gerenciamento completo do modem FM350-GL
-- Interface web responsiva
-- Watchdog e auto-recuperação
-- Suporte SMS, GNSS, etc.
+## Documentação
 
-Veja docs/ para mais informações.
+- [Instalação](docs/INSTALACAO_E_USO.md)
+- [FAQ](docs/FAQ.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [APN 5G](docs/APN_5G.md)
