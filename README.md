@@ -57,4 +57,3 @@ MIT License © 2026
 ---
 
 **Feito para entusiastas de redes móveis e projetos embarcados.**
-```
