@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>NanoPi FM350 Manager</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
+        nav { background: #333; color: white; padding: 10px; }
+        nav a { color: white; margin: 0 15px; text-decoration: none; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Dashboard</a>
+        <a href="pages/system-logs.html">Logs</a>
+        <a href="pages/backup-restore.html">Backup</a>
+        <a href="pages/network-diagnostics.html">Diagnósticos</a>
+        <a href="pages/system-updates.html">Atualizações</a>
+        <a href="pages/firewall-rules.html">Firewall</a>
+        <a href="pages/connected-devices.html">Dispositivos</a>
+        <a href="pages/traffic-analytics.html">Tráfego</a>
+        <a href="pages/routing-settings.html">Roteamento</a>
+        <a href="pages/system-info.html">Sistema</a>
+        <a href="pages/sim-management.html">SIM</a>
+        <a href="pages/usage-alerts.html">Alertas</a>
+        <a href="pages/connection-history.html">Histórico</a>
+    </nav>
+
+    <div class="container">
+        <h1>🌐 NanoPi 5G Gateway Dashboard</h1>
+        <div class="card">
+            <p class="status" style="color: green; font-weight: bold;">Conectado: 5G NSA (Mock)</p>
+            <p><strong>Operadora:</strong> Vivo • Sinal: Excelente</p>
+            <button onclick="alert('Reconectando modem...')">🔄 Reconectar</button>
+        </div>
+        <p><em>Interface administrativa completa para FM350-GL. Use o menu acima para acessar novas páginas.</em></p>
+    </div>
+</body>
+</html>

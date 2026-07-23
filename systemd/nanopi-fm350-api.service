@@ -1,0 +1,12 @@
+[Unit]
+Description=NanoPi FM350 API Service
+After=network.target
+
+[Service]
+User=fm350-user
+WorkingDirectory=/opt/nanopi-fm350-manager
+ExecStart=/usr/bin/python3 backend/main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
