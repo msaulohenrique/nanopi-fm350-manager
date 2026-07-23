@@ -4,16 +4,22 @@
 
 Este guia explica como configurar o APN para conexão 5G/LTE no modem Fibocom FM350-GL.
 
-## Operadoras Brasileiras Recomendadas
+## Operadoras e MVNOs Brasileiras
 
-| Operadora       | APN                  | Tipo PDN   | Autenticação | Observações          |
-|-----------------|----------------------|------------|--------------|----------------------|
-| **Vivo**        | `zap.vivo.com.br`    | IPv4v6     | None         | Melhor para 5G      |
-| **Claro**       | `claro.br`           | IPv4v6     | None         | Boa cobertura       |
-| **TIM**         | `tim.br`             | IPv4v6     | None         | Rápida em cidades   |
-| **Oi**          | `oi.br`              | IPv4       | None         | -                   |
-| **Surf Telecom**| `surf.br`            | IPv4v6     | None         | -                   |
+| Operadora / MVNO     | APN                     | Tipo PDN   | Autenticação | Observações                  |
+|----------------------|-------------------------|------------|--------------|------------------------------|
+| **Vivo**             | `zap.vivo.com.br`       | IPv4v6     | None         | Melhor para 5G              |
+| **Claro**            | `claro.br`              | IPv4v6     | None         | Boa cobertura               |
+| **TIM**              | `tim.br`                | IPv4v6     | None         | Rápida em áreas urbanas     |
+| **Hypecon**          | `hypecon.br` ou `internet` | IPv4v6  | None         | MVNO - Verificar no app/site |
+| **Surf MVNO**        | `surf.br` ou `internet` | IPv4v6     | None         | Depende da credenciada      |
 
+### Links Importantes
+
+- **Hypecon**: [https://hypecon.gg/](https://hypecon.gg/)
+- **Surf MVNO - Credenciadas**: [https://www.surf.com.br/site/credenciadas/](https://www.surf.com.br/site/credenciadas/)
+
+> **Nota**: Para MVNOs como Hypecon e Surf, o APN pode variar conforme a operadora credenciada (Vivo, Claro, TIM). Consulte o app ou suporte da MVNO para o APN exato.
 ## Como Configurar (Interface Web)
 
 1. Acesse o painel → **Configuração de APN**
@@ -32,6 +38,7 @@ Este guia explica como configurar o APN para conexão 5G/LTE no modem Fibocom FM
 - **Roaming**: Ative apenas se estiver fora da rede principal
 - **5G SA / NSA**: Selecione na página de Modos de Rede
 - **Teste de Conexão**: Use a página de Diagnósticos → Speedtest
+- Se não conectar, tente APN genérico `internet` com Tipo PDN `IPv4v6`.
 
 ## Via Terminal (Avançado)
 
