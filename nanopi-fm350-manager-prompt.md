@@ -1,20 +1,82 @@
-# MISSÃO — GERAR IMAGEM/ZIP COMPLETO PARA NANOPI NEO3 PLUS + FIBOCOM FM350-GL
+# NanoPi NEO3 Plus + Fibocom FM350-GL
+
+> **Especificação técnica e prompt de execução** para a criação de um gateway 4G/5G profissional, instalável e administrável pelo navegador.
+
+## Sumário
+
+- [1. RESULTADO FINAL OBRIGATÓRIO](#1-resultado-final-obrigatorio)
+- [2. HARDWARE DO PROJETO](#2-hardware-do-projeto)
+- [3. SISTEMAS OPERACIONAIS](#3-sistemas-operacionais)
+- [4. DETECÇÃO DO FM350-GL](#4-deteccao-do-fm350-gl)
+- [5. CAMADA DE COMPATIBILIDADE](#5-camada-de-compatibilidade)
+- [6. TECNOLOGIAS RECOMENDADAS](#6-tecnologias-recomendadas)
+- [7. DASHBOARD PRINCIPAL](#7-dashboard-principal)
+- [8. MÉTRICAS DE SINAL](#8-metricas-de-sinal)
+- [9. CONFIGURAÇÃO DA OPERADORA](#9-configuracao-da-operadora)
+- [10. CONFIGURAÇÃO DO SIM](#10-configuracao-do-sim)
+- [11. MODOS DE REDE](#11-modos-de-rede)
+- [12. CONTROLE DE BANDAS](#12-controle-de-bandas)
+- [13. BLOQUEIO DE CÉLULA](#13-bloqueio-de-celula)
+- [14. CONEXÃO DE DADOS](#14-conexao-de-dados)
+- [15. ROTEAMENTO E DHCP](#15-roteamento-e-dhcp)
+- [16. FIREWALL](#16-firewall)
+- [17. SMS](#17-sms)
+- [18. CHAMADAS](#18-chamadas)
+- [19. GNSS E LOCALIZAÇÃO](#19-gnss-e-localizacao)
+- [20. WATCHDOG E AUTORRECUPERAÇÃO](#20-watchdog-e-autorrecuperacao)
+- [21. FAILOVER ENTRE OPERADORAS OU PERFIS](#21-failover-entre-operadoras-ou-perfis)
+- [22. TESTE DE VELOCIDADE](#22-teste-de-velocidade)
+- [23. CONSUMO DE DADOS](#23-consumo-de-dados)
+- [24. ADMINISTRAÇÃO DO SISTEMA](#24-administracao-do-sistema)
+- [25. TERMINAL AT SEGURO](#25-terminal-at-seguro)
+- [26. LOGS E DIAGNÓSTICOS](#26-logs-e-diagnosticos)
+- [27. BACKUP E RESTAURAÇÃO](#27-backup-e-restauracao)
+- [28. INSTALADOR](#28-instalador)
+- [29. INSTALAÇÃO OFFLINE](#29-instalacao-offline)
+- [30. ATUALIZAÇÃO](#30-atualizacao)
+- [31. DESINSTALAÇÃO](#31-desinstalacao)
+- [32. SERVIÇOS SYSTEMD](#32-servicos-systemd)
+- [33. API](#33-api)
+- [34. TESTES](#34-testes)
+- [35. DOCUMENTAÇÃO](#35-documentacao)
+- [36. SEGURANÇA](#36-seguranca)
+- [37. REQUISITOS DE UX](#37-requisitos-de-ux)
+- [38. RECURSOS LIMITADOS](#38-recursos-limitados)
+- [39. VALIDAÇÃO FINAL](#39-validacao-final)
+- [40. GERAÇÃO DO ZIP](#40-geracao-do-zip)
+- [41. REGRAS DE EXECUÇÃO DO AGENTE](#41-regras-de-execucao-do-agente)
+- [42. FASES OBRIGATÓRIAS](#42-fases-obrigatorias)
+- [43. OBSERVAÇÃO SOBRE IMAGEM DE MICROSD](#43-observacao-sobre-imagem-de-microsd)
+- [44. ENTREGA](#44-entrega)
+
+---
+
+## Missão
 
 Você atuará como arquiteto Linux embarcado, engenheiro de redes móveis 4G/5G, desenvolvedor full-stack, especialista em modems Fibocom, ModemManager, MBIM, NetworkManager, systemd, segurança, roteamento e interfaces web responsivas.
-Seu objetivo é criar um projeto completo e instalável para transformar um:
+
+**Seu objetivo é criar um projeto completo e instalável para transformar um:**
+
 - FriendlyElec NanoPi NEO3 Plus
 - Fibocom FM350-GL
 - placa Waveshare 5G M.2 to Gigabit Ethernet
 - cartão microSD
 - sistema Debian/Ubuntu ARM64 ou FriendlyWrt compatível
+
 em um gateway 4G/5G profissional, totalmente administrável pelo navegador.
+
 O resultado final deve ser entregue em um arquivo ZIP pronto para ser copiado para o microSD e instalado no NanoPi.
+
 O usuário não deve precisar programar, editar arquivos manualmente ou conhecer comandos Linux avançados.
+
 ## 1. RESULTADO FINAL OBRIGATÓRIO
 
 **Gerar um arquivo semelhante a:**
-- nanopi-fm350-manager.zip
+
+- `nanopi-fm350-manager.zip`
+
 **O ZIP deverá conter:**
+
 ```text
 nanopi-fm350-manager/
 ├── install.sh
@@ -42,45 +104,56 @@ nanopi-fm350-manager/
 ├── docs/
 ├── tests/
 └── releases/
-O usuário deverá conseguir:
-descompactar o ZIP;
-copiar a pasta para o microSD ou NanoPi;
-acessar a pasta;
-executar:
+```
+
+**O usuário deverá conseguir:**
+
+- descompactar o ZIP
+- copiar a pasta para o microSD ou NanoPi
+- acessar a pasta
+
+**executar:**
 
 ```bash
 sudo bash install.sh
 ```
 
-Ao final, o instalador deverá informar:
-Instalação concluída.
-Acesse o painel em:
-http://IP-DO-NANOPI
-ou
-[http://nanopi-5g.local](http://nanopi-5g.local)
-Usuário inicial: admin
-Senha inicial: definida durante a instalação
-```
+**Ao final, o instalador deverá informar:**
 
+- Instalação concluída
+
+**Acesse o painel em:**
+
+- <http://IP-DO-NANOPI>
+- ou
+- [http://nanopi-5g.local](http://nanopi-5g.local)
+- Usuário inicial: admin
+- Senha inicial: definida durante a instalação
 ## 2. HARDWARE DO PROJETO
 
-**Considere a seguinte topologia:**
-- Antenas 4G/5G
-- │
-- Fibocom FM350-GL
-- │ M.2 B-Key
-- Waveshare 5G M.2 to Gigabit Ethernet
-- │
-- ├── alimentação própria
-- └── USB 3.0
-- │
-- FriendlyElec NanoPi NEO3 Plus
-- │
-- └── Ethernet Gigabit
-- │
-- └── porta WAN secundária do Ubiquiti Dream Router 7
+Considere a seguinte topologia:
+
+```text
+Antenas 4G/5G
+      │
+Fibocom FM350-GL
+      │ M.2 B-Key
+Waveshare 5G M.2 to Gigabit Ethernet
+      │
+      ├── alimentação própria
+      └── USB 3.0
+             │
+FriendlyElec NanoPi NEO3 Plus
+             │
+             └── Ethernet Gigabit
+                    │
+                    └── porta WAN secundária do Ubiquiti Dream Router 7
+```
+
 A placa Waveshare será conectada por USB ao NanoPi.
+
 **O sistema deve usar o NanoPi para:**
+
 - acessar o FM350-GL
 - configurar o modem
 - controlar a conexão móvel
@@ -89,17 +162,22 @@ A placa Waveshare será conectada por USB ao NanoPi.
 - fornecer DHCP, NAT e firewall
 - expor o painel web
 - monitorar o modem
-recuperar automaticamente a conexão.
+- recuperar automaticamente a conexão
+
 A Waveshare deverá permanecer alimentada por fonte própria adequada.
+
 ## 3. SISTEMAS OPERACIONAIS
 
 **O projeto deve priorizar:**
+
 - Debian ARM64
 - Ubuntu Server ARM64
 - FriendlyCore
 - Armbian
-FriendlyWrt, quando tecnicamente possível.
+- FriendlyWrt, quando tecnicamente possível
+
 **O instalador deverá detectar automaticamente:**
+
 - distribuição
 - versão
 - arquitetura
@@ -113,28 +191,39 @@ FriendlyWrt, quando tecnicamente possível.
 - suporte QMI
 - suporte MHI
 - portas seriais
-ModemManager.
+- ModemManager
+
 Caso o sistema não seja compatível, mostrar uma mensagem clara informando o motivo e os sistemas recomendados.
+
 Nunca continuar silenciosamente após um erro crítico.
+
 ## 4. DETECÇÃO DO FM350-GL
 
-- O instalador deverá executar uma auditoria completa do modem.
+O instalador deverá executar uma auditoria completa do modem.
+
 **Detectar:**
-- `lsusb`
-- `lsusb -t`
-- `lspci`
-- `ip -br link`
-- `nmcli device`
-- `mmcli -L`
-- `dmesg`
+
+```text
+lsusb
+lsusb -t
+lspci
+ip -br link
+nmcli device
+mmcli -L
+dmesg
+```
+
 **Procurar automaticamente:**
-- /dev/ttyUSB*
-- /dev/ttyACM*
-- /dev/cdc-wdm*
-- /dev/wwan*
-- /dev/mhi*
-- /dev/serial/by-id/*
+
+- `/dev/ttyUSB*`
+- `/dev/ttyACM*`
+- `/dev/cdc-wdm*`
+- `/dev/wwan*`
+- `/dev/mhi*`
+- `/dev/serial/by-id/*`
+
 **Identificar:**
+
 - VID e PID USB
 - fabricante
 - modelo
@@ -149,24 +238,34 @@ Nunca continuar silenciosamente após um erro crítico.
 - interface RMNET
 - interface MHI
 - interface de dados
-possível interface USB Audio.
+- possível interface USB Audio
+
 O sistema não deverá assumir que /dev/ttyUSB2 sempre será a porta AT.
+
 **Criar um detector que teste todas as portas candidatas com:**
-- `AT`
-- `ATI`
-- `AT+CGMI`
-- `AT+CGMM`
-- `AT+CGMR`
-- `AT+GSN`
-- `AT+CPIN?`
-- `AT+COPS?`
-- `AT+CSQ`
+
+```text
+AT
+ATI
+AT+CGMI
+AT+CGMM
+AT+CGMR
+AT+GSN
+AT+CPIN?
+AT+COPS?
+AT+CSQ
+```
+
 A porta que responder corretamente deverá ser salva por identificador persistente de /dev/serial/by-id/, sempre que possível.
+
 ## 5. CAMADA DE COMPATIBILIDADE
 
 Criar uma camada abstrata de modem.
+
 O backend não deve chamar comandos específicos do FM350 diretamente em todos os arquivos.
+
 **Criar interfaces como:**
+
 - ModemAdapter
 - NetworkAdapter
 - MessagingAdapter
@@ -175,13 +274,18 @@ O backend não deve chamar comandos específicos do FM350 diretamente em todos o
 - CellAdapter
 - GnssAdapter
 - DiagnosticsAdapter
+
 **Implementar pelo menos:**
+
 - FibocomFM350Adapter
 - ModemManagerAdapter
 - GenericATAdapter
 - MBIMAdapter
+
 Antes de habilitar qualquer função no painel, o sistema deve verificar se ela é realmente suportada.
+
 **Cada recurso deverá ter um estado:**
+
 - supported
 - unsupported
 - experimental
@@ -190,10 +294,13 @@ Antes de habilitar qualquer função no painel, o sistema deve verificar se ela 
 - firmware_limited
 - carrier_limited
 Nunca apresentar uma função como garantida quando depender do firmware HP, Lenovo, Fibocom genérico ou da operadora.
+
 ## 6. TECNOLOGIAS RECOMENDADAS
 
 - Backend
+
 **Usar preferencialmente:**
+
 - Python 3
 - FastAPI
 - Uvicorn ou Gunicorn
@@ -205,9 +312,11 @@ Nunca apresentar uma função como garantida quando depender do firmware HP, Len
 - psutil
 - asyncio
 - subprocess controlado
-WebSocket ou Server-Sent Events.
+- WebSocket ou Server-Sent Events
 - Frontend
+
 **Usar:**
+
 - React
 - TypeScript
 - Vite
@@ -216,9 +325,11 @@ WebSocket ou Server-Sent Events.
 - Tailwind CSS ou CSS modular
 - gráficos leves
 - sem dependência obrigatória de internet
-todos os assets armazenados localmente.
+- todos os assets armazenados localmente
 - Serviços Linux
+
 **Usar:**
+
 - ModemManager
 - NetworkManager
 - libmbim-utils
@@ -230,19 +341,27 @@ todos os assets armazenados localmente.
 - avahi-daemon
 - systemd
 - chrony
-logrotate.
+- logrotate
+
 Evitar Docker como dependência obrigatória, pois o hardware possui recursos limitados.
+
 O projeto pode oferecer Docker opcional, mas a instalação padrão deve ser nativa.
+
 ## 7. DASHBOARD PRINCIPAL
 
-Criar uma interface web profissional, limpa, responsiva e adaptada para:
+**Criar uma interface web profissional, limpa, responsiva e adaptada para:**
+
 - computador
 - tablet
 - celular
-tela pequena.
+- tela pequena
+
 Não criar aparência genérica de dashboard feita por IA.
+
 Usar boa hierarquia visual, espaçamento consistente, legibilidade e componentes reutilizáveis.
+
 **A página inicial deverá mostrar:**
+
 - estado geral da conexão
 - conectado ou desconectado
 - operadora
@@ -269,8 +388,10 @@ Usar boa hierarquia visual, espaçamento consistente, legibilidade e componentes
 - uso do armazenamento
 - uptime
 - última reconexão
-último erro.
+- último erro
+
 **Criar indicador visual de saúde:**
+
 - Excelente
 - Bom
 - Regular
@@ -280,6 +401,7 @@ Usar boa hierarquia visual, espaçamento consistente, legibilidade e componentes
 ## 8. MÉTRICAS DE SINAL
 
 **Exibir quando disponíveis:**
+
 - RSSI
 - RSRP
 - RSRQ
@@ -304,23 +426,29 @@ Usar boa hierarquia visual, espaçamento consistente, legibilidade e componentes
 - largura de banda
 - modo duplex
 - MIMO
-NSA ou SA.
+- NSA ou SA
+
 **Criar:**
+
 - gráfico de sinal ao longo do tempo
 - gráfico de latência
 - gráfico de tráfego
 - histórico de células
 - histórico de bandas
 - histórico de reconexões
-histórico de operadoras.
+- histórico de operadoras
+
 Armazenar métricas em SQLite com política de retenção configurável.
+
 **Exemplo:**
+
 - dados detalhados: 7 dias
 - dados agregados: 90 dias
-totais diários: 1 ano.
+- totais diários: 1 ano
 ## 9. CONFIGURAÇÃO DA OPERADORA
 
 **Criar tela para:**
+
 - seleção automática de operadora
 - busca manual de redes
 - lista de redes encontradas
@@ -333,8 +461,10 @@ totais diários: 1 ano.
 - mostrar estado de registro
 - exibir erro de registro
 - mostrar operadora doméstica
-mostrar operadora visitada.
+- mostrar operadora visitada
+
 **Permitir criar perfis de operadora contendo:**
+
 - nome
 - APN
 - usuário
@@ -350,16 +480,19 @@ mostrar operadora visitada.
 - métrica da rota
 - rede preferida
 - bandas preferidas
+
 **Adicionar perfis iniciais editáveis para:**
+
 - Vivo
 - Claro
 - TIM
 - Correios Celular
-perfil genérico.
-Não assumir APNs sem permitir revisão do usuário.
+- perfil genérico
+- Não assumir APNs sem permitir revisão do usuário.
 ## 10. CONFIGURAÇÃO DO SIM
 
 **Criar tela para:**
+
 - estado do SIM
 - SIM detectado
 - SIM ausente
@@ -375,12 +508,14 @@ Não assumir APNs sem permitir revisão do usuário.
 - número da linha, quando disponível
 - operadora do SIM
 - tecnologia suportada
-roaming.
-Nunca armazenar PIN ou PUK em texto simples.
+- roaming
+- Nunca armazenar PIN ou PUK em texto simples.
 Caso seja necessário armazenar o PIN para reconexão automática, usar criptografia local e permissões restritas.
+
 ## 11. MODOS DE REDE
 
 **Criar controles para:**
+
 - automático
 - 3G
 - somente LTE
@@ -391,24 +526,31 @@ Caso seja necessário armazenar o PIN para reconexão automática, usar criptogr
 - 5G NSA
 - 5G SA
 - NSA + SA
-restaurar configuração padrão.
+- restaurar configuração padrão
+
 Os modos deverão ser disponibilizados apenas quando o modem realmente aceitar os respectivos comandos.
+
 **Após qualquer alteração:**
+
 - validar entrada
 - mostrar aviso
 - aplicar configuração
 - consultar o modem novamente
 - confirmar se foi aplicada
 - reverter em caso de falha
-registrar no log de auditoria.
+- registrar no log de auditoria
 ## 12. CONTROLE DE BANDAS
 
 Criar uma interface completa para seleção de bandas.
+
 **Separar:**
+
 - Bandas LTE
 - Bandas 5G NSA
 - Bandas 5G SA
+
 **Permitir:**
+
 - selecionar todas
 - desmarcar todas
 - selecionar bandas individuais
@@ -418,8 +560,10 @@ Criar uma interface completa para seleção de bandas.
 - restaurar bandas automáticas
 - mostrar bandas atualmente permitidas
 - mostrar bandas atualmente em uso
-mostrar bandas suportadas pelo modem.
+- mostrar bandas suportadas pelo modem
+
 **Criar presets editáveis como:**
+
 - Automático
 - Estabilidade
 - Maior cobertura
@@ -428,19 +572,23 @@ mostrar bandas suportadas pelo modem.
 - 5G NSA
 - 5G SA
 - Personalizado
-Não usar comandos AT destrutivos sem confirmar suporte.
+- Não usar comandos AT destrutivos sem confirmar suporte.
+
 **Antes de executar comandos de máscara de bandas:**
+
 - consultar configuração atual
 - salvar backup
 - validar máscara
 - aplicar
 - ler novamente
 - confirmar resultado
-permitir rollback.
+- permitir rollback
 ## 13. BLOQUEIO DE CÉLULA
 
 Implementar como recurso experimental.
+
 **Quando suportado, permitir:**
+
 - bloquear EARFCN
 - bloquear NR-ARFCN
 - selecionar PCI
@@ -449,19 +597,26 @@ Implementar como recurso experimental.
 - remover bloqueio
 - salvar célula favorita
 - testar célula por tempo determinado
-voltar automaticamente caso perca conexão.
+- voltar automaticamente caso perca conexão
+
 **Criar proteção obrigatória:**
+
 Se o bloqueio causar perda de conexão por determinado período, remover automaticamente o bloqueio e restaurar o perfil anterior.
+
 Nunca permitir que o usuário fique permanentemente sem acesso ao painel devido a uma configuração de célula.
+
 ## 14. CONEXÃO DE DADOS
 
 **Implementar suporte preferencial a:**
+
 - ModemManager + NetworkManager
 - MBIM
 - QMI
 - MHI/RMNET
-fallback por comandos AT.
+- fallback por comandos AT
+
 **Criar ações:**
+
 - conectar
 - desconectar
 - reconectar
@@ -472,8 +627,10 @@ fallback por comandos AT.
 - sair do modo avião
 - reset lógico
 - reset USB
-reset físico por GPIO, quando configurado.
+- reset físico por GPIO, quando configurado.
+
 **Mostrar:**
+
 - bearer
 - interface
 - endereço IP
@@ -482,17 +639,25 @@ reset físico por GPIO, quando configurado.
 - MTU
 - rota padrão
 - tempo conectado
-motivo da desconexão.
+- motivo da desconexão
 ## 15. ROTEAMENTO E DHCP
 
 A Ethernet do NanoPi deverá fornecer internet para o Ubiquiti Dream Router 7.
+
 O instalador deverá detectar a interface Ethernet física e permitir selecioná-la.
+
 **Configuração padrão sugerida:**
+
 **NanoPi LAN:**
+
 - 192.168.8.1/24
+
 **DHCP:**
+
 - 192.168.8.100 até 192.168.8.200
+
 **Permitir editar:**
+
 - IP da LAN
 - máscara
 - faixa DHCP
@@ -502,19 +667,25 @@ O instalador deverá detectar a interface Ethernet física e permitir selecioná
 - hostname
 - modo NAT
 - modo passthrough, quando tecnicamente possível
-modo bridge, quando tecnicamente possível.
+- modo bridge, quando tecnicamente possível
+
 **Configurar:**
+
 - IP forwarding
 - NAT
 - masquerade
 - firewall
 - encaminhamento da interface móvel para Ethernet
-bloqueio de acesso não autorizado ao painel.
+- bloqueio de acesso não autorizado ao painel.
+
 O painel deverá continuar acessível pela Ethernet mesmo se a conexão 4G/5G cair.
+
 ## 16. FIREWALL
 
 Usar nftables.
+
 **Criar regras para:**
+
 - permitir painel web pela LAN
 - permitir SSH apenas quando habilitado
 - bloquear administração vinda da interface móvel
@@ -525,19 +696,25 @@ Usar nftables.
 - impedir comandos arbitrários
 - proteção básica contra força bruta
 - rate limit do login
-rate limit da API.
+- rate limit da API
+
 **Adicionar no painel:**
+
 - habilitar SSH
 - desabilitar SSH
 - alterar porta
 - mostrar sessões
 - exportar regras
-restaurar firewall.
+- restaurar firewall
+
 Nunca abrir o painel diretamente para a internet móvel por padrão.
+
 ## 17. SMS
 
 Criar um módulo completo de SMS.
+
 **Funções:**
+
 - caixa de entrada
 - enviados
 - rascunhos
@@ -557,31 +734,44 @@ Criar um módulo completo de SMS.
 - caracteres acentuados
 - identificação do remetente
 - data e hora
-status de entrega, quando disponível.
+- status de entrega, quando disponível
+
 **Usar preferencialmente:**
+
 - ModemManager Messaging API
 - fallback com comandos AT CMGF, CMGL, CMGR, CMGS, CMGD
-modo PDU quando necessário.
+- modo PDU quando necessário
+
 **Criar proteção contra:**
+
 - mensagens duplicadas
 - concatenação incorreta
 - caracteres corrompidos
 - envio repetido
 - timeout
-modem ocupado.
+- modem ocupado
+
 **Permitir notificações opcionais por:**
+
 - webhook
 - Telegram
 - e-mail
-API local.
+- API local
+
 Não implementar integração com WhatsApp sem API oficial ou configuração explícita.
+
 ## 18. CHAMADAS
 
 Criar módulo de chamadas como experimental.
+
 **Detectar suporte real para:**
-- `ATD;`
-- `ATA;`
-- `ATH;`
+
+```text
+ATD;
+ATA;
+ATH;
+```
+
 - CLCC
 - CLIP
 - chamada recebida
@@ -591,29 +781,37 @@ Criar módulo de chamadas como experimental.
 - histórico
 - atender
 - rejeitar
-encerrar.
+- encerrar
+
 **Detectar:**
+
 - registro IMS
 - VoLTE
 - suporte de voz
 - USB Audio
 - ALSA
 - PCM
-interfaces de áudio expostas pelo modem.
+- interfaces de áudio expostas pelo modem.
+
 **O painel deve diferenciar:**
+
 - Controle de chamada disponível
 - Áudio de chamada disponível
 - Somente sinalização disponível
 - Chamadas não suportadas pelo firmware
 - Chamadas não suportadas pela operadora
+
 Nunca prometer áudio funcional apenas porque o modem aceita ATD.
+
 **Se não houver interface de áudio:**
+
 - permitir apenas detecção e controle, se possível
 - mostrar aviso claro
-não simular que a chamada está utilizável.
+- não simular que a chamada está utilizável.
 ## 19. GNSS E LOCALIZAÇÃO
 
 **Quando o firmware e hardware suportarem GNSS:**
+
 - detectar porta NMEA
 - iniciar GNSS
 - parar GNSS
@@ -626,13 +824,18 @@ não simular que a chamada está utilizável.
 - data da última posição
 - estado do fix
 - exportar GPX
-exibir histórico.
+- exibir histórico
+
 Não depender de serviços externos de mapas para o funcionamento básico.
+
 Mapas online poderão ser opcionais.
+
 ## 20. WATCHDOG E AUTORRECUPERAÇÃO
 
 Criar serviço de watchdog independente do painel.
+
 **O watchdog deverá avaliar:**
+
 - modem detectado
 - SIM disponível
 - modem registrado
@@ -642,8 +845,10 @@ Criar serviço de watchdog independente do painel.
 - DNS funcionando
 - acesso externo
 - latência
-perda de pacotes.
+- perda de pacotes
+
 **Criar recuperação progressiva:**
+
 - Nível 1: renovar DNS
 - Nível 2: renovar rota
 - Nível 3: desconectar e reconectar
@@ -654,26 +859,31 @@ perda de pacotes.
 - Nível 8: reset USB
 - Nível 9: reset físico por GPIO
 - Nível 10: reiniciar NanoPi
+
 **Cada nível deve possuir:**
+
 - intervalo mínimo
 - contador
 - cooldown
 - limite por hora
 - log
 - motivo
-resultado.
-Impedir loops infinitos de reinicialização.
+- resultado
+- Impedir loops infinitos de reinicialização
+
 **Permitir configurar:**
+
 - host de teste
 - intervalo
 - timeout
 - quantidade de falhas
 - níveis habilitados
 - reinício automático
-horário de manutenção.
+- horário de manutenção
 ## 21. FAILOVER ENTRE OPERADORAS OU PERFIS
 
 **Mesmo que inicialmente exista apenas um SIM, preparar o sistema para:**
+
 - vários perfis APN
 - eSIM, quando suportado
 - múltiplos SIMs
@@ -682,35 +892,46 @@ horário de manutenção.
 - alternância de operadora
 - fallback entre 5G e LTE
 - fallback entre APNs
-fallback entre células.
-A troca automática deverá ser configurável.
+- fallback entre células
+- A troca automática deverá ser configurável.
+
 **Exemplo:**
+
 - Perfil principal: Correios Celular
 - Perfil secundário: TIM
 - Fallback de rede: 5G → LTE
+
 Não tentar trocar de operadora de forma incompatível com o SIM ou contrato.
+
 ## 22. TESTE DE VELOCIDADE
 
 **Criar teste opcional de:**
+
 - download
 - upload
 - latência
 - jitter
-perda.
+- perda
+
 Evitar executar automaticamente com frequência, pois consome franquia de dados.
+
 Exigir ação manual ou agendamento explícito.
+
 Permitir configurar limite mensal para testes.
+
 **Registrar:**
+
 - data
 - operadora
 - banda
 - célula
 - RSRP
 - SINR
-resultado.
+- resultado
 ## 23. CONSUMO DE DADOS
 
 **Criar contadores de:**
+
 - sessão atual
 - diário
 - semanal
@@ -718,8 +939,10 @@ resultado.
 - ciclo personalizado
 - upload
 - download
-total.
+- total
+
 **Permitir:**
+
 - definir data de renovação da franquia
 - definir limite mensal
 - alerta de 50%
@@ -727,11 +950,14 @@ total.
 - alerta de 90%
 - alerta de 100%
 - bloquear testes de velocidade ao atingir limite
-exportar CSV.
+- exportar CSV
+
 Deixar claro que a medição local pode diferir da medição oficial da operadora.
+
 ## 24. ADMINISTRAÇÃO DO SISTEMA
 
 **Criar páginas para:**
+
 - usuários
 - senha
 - sessões ativas
@@ -750,23 +976,31 @@ Deixar claro que a medição local pode diferir da medição oficial da operador
 - serviços
 - armazenamento
 - temperatura
-configuração avançada.
+- configuração avançada
+
 **Criar níveis:**
+
 - Administrador
 - Operador
 - Visualização
+
 **Usar:**
+
 - senha com hash Argon2id ou bcrypt
 - cookies seguros
 - proteção CSRF
 - expiração de sessão
 - bloqueio temporário após várias tentativas
-log de auditoria.
+- log de auditoria
+
 No primeiro acesso, obrigar troca ou definição de senha.
+
 ## 25. TERMINAL AT SEGURO
 
 Criar uma tela de terminal AT avançado, desabilitada por padrão.
+
 **Ela deverá:**
+
 - exigir senha do administrador
 - mostrar aviso de risco
 - permitir apenas comandos AT
@@ -776,33 +1010,40 @@ Criar uma tela de terminal AT avançado, desabilitada por padrão.
 - registrar todos os comandos
 - ocultar dados sensíveis
 - permitir lista de comandos seguros
-exigir confirmação para comandos destrutivos.
+- exigir confirmação para comandos destrutivos
+
 **Bloquear inicialmente comandos que possam:**
+
 - apagar firmware
 - alterar IMEI
 - apagar calibração
 - modificar NV permanentemente
 - bloquear o modem
 - alterar partições
-iniciar download mode.
-Nunca oferecer alteração de IMEI.
+- iniciar download mode
+- Nunca oferecer alteração de IMEI
 ## 26. LOGS E DIAGNÓSTICOS
 
 **Criar logs separados:**
-- application.log
-- modem.log
-- network.log
-- watchdog.log
-- sms.log
-- calls.log
-- security.log
-- audit.log
-- installer.log
-- update.log
-Usar logrotate.
+
+- `application.log`
+- `modem.log`
+- `network.log`
+- `watchdog.log`
+- `sms.log`
+- `calls.log`
+- `security.log`
+- `audit.log`
+- `installer.log`
+- `update.log`
+- Usar logrotate
+
 **Criar botão:**
+
 - Gerar pacote de diagnóstico
+
 **O pacote deverá conter:**
+
 - sistema operacional
 - kernel
 - arquitetura
@@ -819,8 +1060,10 @@ Usar logrotate.
 - portas detectadas
 - firmware
 - métricas
-últimos erros.
+- últimos erros
+
 **Antes de gerar, remover ou mascarar:**
+
 - senhas
 - PIN
 - PUK
@@ -830,10 +1073,11 @@ Usar logrotate.
 - ICCID completo
 - conteúdo de SMS
 - cookies
-chaves privadas.
+- chaves privadas
 ## 27. BACKUP E RESTAURAÇÃO
 
 **O backup deverá incluir:**
+
 - configurações
 - perfis
 - usuários
@@ -842,7 +1086,8 @@ chaves privadas.
 - presets de bandas
 - configurações de watchdog
 - certificados
-banco SQLite.
+- banco SQLite
+
 **Criar backup:**
 
 ```bash
@@ -855,12 +1100,14 @@ sudo bash backup.sh
 sudo bash restore.sh arquivo-backup.tar.gz
 ```
 
-O painel também deverá permitir exportar e restaurar.
-O backup deverá ser criptografado opcionalmente.
+- O painel também deverá permitir exportar e restaurar.
+- O backup deverá ser criptografado opcionalmente.
 ## 28. INSTALADOR
 
 O install.sh deverá ser idempotente.
+
 **Ele deverá:**
+
 - validar execução como root
 - verificar arquitetura ARM64
 - detectar sistema
@@ -885,59 +1132,56 @@ O install.sh deverá ser idempotente.
 - iniciar serviços
 - executar testes
 - gerar relatório
-exibir endereço do painel.
+- exibir endereço do painel
+
 **O instalador deverá aceitar:**
 
 ```bash
 sudo bash install.sh
-```
-
-```bash
 sudo bash install.sh --non-interactive
-```
-
-```bash
 sudo bash install.sh --repair
-```
-
-```bash
 sudo bash install.sh --offline
-```
-
-```bash
 sudo bash install.sh --skip-modem-check
-```
-
-```bash
 sudo bash install.sh --interface eth0
 ```
 
-Criar menu interativo amigável.
+- Criar menu interativo amigável
+
 **Nunca apagar uma configuração de rede existente sem:**
+
 - detectar
 - criar backup
 - mostrar aviso
-permitir restauração.
+- permitir restauração
 ## 29. INSTALAÇÃO OFFLINE
 
 Como o usuário deseja copiar tudo para o microSD, preparar opção de instalação offline.
+
 **Criar no ZIP:**
+
 - packages/
 - vendor/
 - wheels/
 - node-dist/
+
 **Quando possível, incluir:**
+
 - wheels Python ARM64
 - frontend já compilado
 - dependências JavaScript já empacotadas
 - arquivos estáticos
-scripts de instalação.
-Não incluir pacotes proprietários sem licença de redistribuição.
+- scripts de instalação
+- Não incluir pacotes proprietários sem licença de redistribuição.
+
 **Criar dois modos:**
+
 - Modo online
 - Modo offline
+
 No modo offline, o instalador deverá verificar se todos os pacotes necessários estão presentes.
+
 Se algo estiver faltando, informar exatamente qual pacote precisa ser obtido.
+
 ## 30. ATUALIZAÇÃO
 
 **Criar:**
@@ -947,6 +1191,7 @@ sudo bash update.sh
 ```
 
 **O atualizador deverá:**
+
 - criar backup
 - verificar versão
 - validar integridade
@@ -956,9 +1201,12 @@ sudo bash update.sh
 - preservar configuração
 - iniciar serviços
 - executar health check
-reverter em caso de falha.
+- reverter em caso de falha
+
 Criar sistema de versão sem depender obrigatoriamente de servidor externo.
+
 Permitir atualização por upload de um ZIP no painel.
+
 ## 31. DESINSTALAÇÃO
 
 **Criar:**
@@ -968,25 +1216,29 @@ sudo bash uninstall.sh
 ```
 
 **Perguntar se deseja:**
+
 - remover apenas aplicação
 - manter configurações
 - manter banco
 - remover dependências
 - restaurar rede anterior
 - remover firewall
-remover usuário de serviço.
-Sempre criar backup antes da remoção.
+- remover usuário de serviço
+- Sempre criar backup antes da remoção.
 ## 32. SERVIÇOS SYSTEMD
 
 **Criar serviços separados:**
-- nanopi-fm350-api.service
-- nanopi-fm350-worker.service
-- nanopi-fm350-watchdog.service
-- nanopi-fm350-metrics.service
-- nanopi-fm350-sms.service
-- nanopi-fm350-gnss.service
-- nanopi-fm350-recovery.service
+
+- `nanopi-fm350-api.service`
+- `nanopi-fm350-worker.service`
+- `nanopi-fm350-watchdog.service`
+- `nanopi-fm350-metrics.service`
+- `nanopi-fm350-sms.service`
+- `nanopi-fm350-gnss.service`
+- `nanopi-fm350-recovery.service`
+
 **Usar:**
+
 - usuário sem privilégios
 - restart automático
 - limites de recurso
@@ -995,42 +1247,52 @@ Sempre criar backup antes da remoção.
 - PrivateTmp
 - ProtectSystem
 - ProtectHome
-capability mínima.
-Não executar todo o backend como root.
+- capability mínima
+- Não executar todo o backend como root.
+
 Criar helper privilegiado estritamente limitado para operações que realmente precisem de root.
+
 ## 33. API
 
 Criar API documentada.
+
 **Exemplos:**
-- GET /api/health
-- GET /api/system/status
-- GET /api/modem
-- GET /api/modem/signal
-- GET /api/modem/cell
-- GET /api/modem/bands
-- POST /api/modem/bands
-- POST /api/modem/reset
-- GET /api/operators
-- POST /api/operators/scan
-- POST /api/operators/register
-- GET /api/profiles
-- POST /api/profiles
-- POST /api/connection/connect
-- POST /api/connection/disconnect
-- GET /api/sms
-- POST /api/sms/send
-- GET /api/calls
-- POST /api/calls/dial
-- POST /api/calls/answer
-- POST /api/calls/hangup
-- GET /api/metrics
-- GET /api/logs
-- POST /api/diagnostics
+
+```http
+GET /api/health
+GET /api/system/status
+GET /api/modem
+GET /api/modem/signal
+GET /api/modem/cell
+GET /api/modem/bands
+POST /api/modem/bands
+POST /api/modem/reset
+GET /api/operators
+POST /api/operators/scan
+POST /api/operators/register
+GET /api/profiles
+POST /api/profiles
+POST /api/connection/connect
+POST /api/connection/disconnect
+GET /api/sms
+POST /api/sms/send
+GET /api/calls
+POST /api/calls/dial
+POST /api/calls/answer
+POST /api/calls/hangup
+GET /api/metrics
+GET /api/logs
+POST /api/diagnostics
+```
+
 Usar autenticação e autorização em todas as rotas sensíveis.
+
 Não expor Swagger publicamente sem autenticação.
+
 ## 34. TESTES
 
 **Criar:**
+
 - testes unitários
 - testes de API
 - testes de parsing AT
@@ -1042,7 +1304,8 @@ Não expor Swagger publicamente sem autenticação.
 - testes de recuperação
 - testes do instalador
 - testes de segurança
-testes do frontend.
+- testes do frontend
+
 **Criar modo de demonstração sem modem:**
 
 ```bash
@@ -1050,10 +1313,12 @@ sudo bash install.sh --demo
 ```
 
 No modo demo, o painel deverá funcionar com dados simulados.
+
 ## 35. DOCUMENTAÇÃO
 
 **Criar documentos completos:**
-- README.md
+
+- `README.md`
 - docs/INSTALLATION.md
 - docs/HARDWARE.md
 - docs/FIRST_BOOT.md
@@ -1071,13 +1336,20 @@ No modo demo, o painel deverá funcionar com dados simulados.
 - docs/UDR7_INTEGRATION.md
 - docs/OFFLINE_INSTALL.md
 - docs/DEVELOPMENT.md
-Explicar como integrar ao Ubiquiti Dream Router 7.
+- Explicar como integrar ao Ubiquiti Dream Router 7.
+
 **Incluir exemplo:**
+
 **NanoPi:**
+
 - 192.168.8.1
+
 **UDR7 WAN secundária:**
+
 - DHCP
+
 **Explicar também:**
+
 - como testar USB
 - como identificar portas
 - como conferir ModemManager
@@ -1085,10 +1357,11 @@ Explicar como integrar ao Ubiquiti Dream Router 7.
 - como recuperar acesso
 - como resetar senha
 - como voltar rede padrão
-como restaurar configurações.
+- como restaurar configurações
 ## 36. SEGURANÇA
 
 **Implementar no mínimo:**
+
 - validação de entrada
 - prevenção contra command injection
 - prevenção contra path traversal
@@ -1105,20 +1378,26 @@ como restaurar configurações.
 - isolamento de serviços
 - proteção dos segredos
 - sanitização de logs
-bloqueio de terminal shell.
+- bloqueio de terminal shell
+
 **Não usar:**
+
 - os.system(user_input)
-Não concatenar entradas do usuário em comandos.
-Usar argumentos separados em subprocess.run.
-Criar lista explícita de comandos permitidos.
+- Não concatenar entradas do usuário em comandos.
+- Usar argumentos separados em subprocess.run
+- Criar lista explícita de comandos permitidos.
 ## 37. REQUISITOS DE UX
 
 A interface deverá estar inicialmente em português do Brasil.
+
 **Preparar internacionalização para:**
+
 - português
 - inglês
-espanhol.
+- espanhol
+
 **Criar:**
+
 - modo claro
 - modo escuro
 - feedback visual
@@ -1128,8 +1407,10 @@ espanhol.
 - confirmação para ações de risco
 - ajuda contextual
 - tela de primeiro acesso
-assistente de configuração inicial.
+- assistente de configuração inicial
+
 **O assistente inicial deverá perguntar:**
+
 - senha do administrador
 - nome do dispositivo
 - fuso horário
@@ -1139,11 +1420,13 @@ assistente de configuração inicial.
 - operadora
 - modo de rede
 - watchdog
-integração com UDR7.
+- integração com UDR7
 ## 38. RECURSOS LIMITADOS
 
 O NanoPi NEO3 Plus tem recursos limitados.
+
 **O sistema deve:**
+
 - reduzir uso de RAM
 - evitar processos desnecessários
 - evitar banco pesado
@@ -1156,16 +1439,22 @@ O NanoPi NEO3 Plus tem recursos limitados.
 - limitar workers
 - evitar polling excessivo
 - usar cache
-usar WebSocket ou SSE apenas quando necessário.
+- usar WebSocket ou SSE apenas quando necessário.
+
 **Criar metas:**
+
 - RAM do projeto em repouso: preferencialmente abaixo de 300 MB
 - CPU em repouso: preferencialmente abaixo de 5%
 - Espaço inicial: preferencialmente abaixo de 1,5 GB
 ## 39. VALIDAÇÃO FINAL
 
 **Antes de gerar o ZIP, executar:**
-- `lint`
-- `typecheck`
+
+```text
+lint
+typecheck
+```
+
 - testes backend
 - testes frontend
 - build frontend
@@ -1178,16 +1467,20 @@ usar WebSocket ou SSE apenas quando necessário.
 - teste de instalação em ambiente limpo
 - teste de atualização
 - teste de desinstalação
-Usar shellcheck nos scripts.
+- Usar shellcheck nos scripts
+
 Usar validação de YAML, JSON, TOML e arquivos de configuração.
+
 **Gerar:**
-- BUILD_REPORT.md
-- TEST_REPORT.md
-- SECURITY_REPORT.md
-- COMPATIBILITY_REPORT.md
+
+- `BUILD_REPORT.md`
+- `TEST_REPORT.md`
+- `SECURITY_REPORT.md`
+- `COMPATIBILITY_REPORT.md`
 ## 40. GERAÇÃO DO ZIP
 
 **Ao final:**
+
 - remover arquivos temporários
 - remover segredos
 - remover caches
@@ -1196,26 +1489,33 @@ Usar validação de YAML, JSON, TOML e arquivos de configuração.
 - incluir frontend compilado
 - incluir checksums
 - gerar manifesto
-compactar o projeto.
+- compactar o projeto
+
 **Criar:**
-- nanopi-fm350-manager-vX.Y.Z.zip
-- nanopi-fm350-manager-vX.Y.Z.zip.sha256
+
+- `nanopi-fm350-manager-vX.Y.Z.zip`
+- `nanopi-fm350-manager-vX.Y.Z.zip.sha256`
+
 **Gerar também:**
-- RELEASE_NOTES.md
-- MANIFEST.txt
+
+- `RELEASE_NOTES.md`
+- `MANIFEST.txt`
+
 **Exibir no terminal:**
-Projeto concluído.
+
+- Projeto concluído
+
 **Arquivos gerados:**
-- ./releases/nanopi-fm350-manager-vX.Y.Z.zip
-- ./releases/nanopi-fm350-manager-vX.Y.Z.zip.sha256
+
+- `./releases/nanopi-fm350-manager-vX.Y.Z.zip`
+- `./releases/nanopi-fm350-manager-vX.Y.Z.zip.sha256`
+
 **Para instalar:**
-## 1. Copie o ZIP para o NanoPi ou microSD.
 
-## 2. Descompacte.
-
-## 3. Entre na pasta.
-
-## 4. Execute:
+1. Copie o ZIP para o NanoPi ou microSD.
+2. Descompacte.
+3. Entre na pasta.
+**4. Execute:**
 
 ```bash
 sudo bash install.sh
@@ -1224,45 +1524,62 @@ sudo bash install.sh
 ## 41. REGRAS DE EXECUÇÃO DO AGENTE
 
 Você deve executar o projeto até a conclusão.
+
 Não pare apenas na criação de documentação ou estrutura vazia.
+
 Não criar arquivos com apenas TODO.
+
 Não criar funções fictícias sem implementação.
+
 Não considerar o projeto concluído enquanto o ZIP não tiver sido gerado.
+
 **Caso uma função dependa de hardware não conectado:**
+
 - implementar a estrutura real
 - criar mock
 - criar detector
 - criar teste
 - documentar
-marcar como não validada em hardware.
-Não inventar respostas de comandos AT.
-Criar tabelas de compatibilidade baseadas em detecção.
+- marcar como não validada em hardware.
+- Não inventar respostas de comandos AT.
+- Criar tabelas de compatibilidade baseadas em detecção.
+
 **Manter um arquivo:**
-- PROGRESS.md
-Atualizá-lo após cada etapa.
+
+- `PROGRESS.md`
+- Atualizá-lo após cada etapa
+
 **Manter também:**
-- DECISIONS.md
-- KNOWN_LIMITATIONS.md
-- HARDWARE_VALIDATION_CHECKLIST.md
+
+- `DECISIONS.md`
+- `KNOWN_LIMITATIONS.md`
+- `HARDWARE_VALIDATION_CHECKLIST.md`
+
 **Quando encontrar erro:**
+
 - registrar
 - investigar
 - corrigir
 - executar novamente
-documentar o resultado.
-Não solicitar autorização para continuar entre etapas normais.
+- documentar o resultado
+- Não solicitar autorização para continuar entre etapas normais.
+
 **Use agentes paralelos quando disponíveis para:**
+
 - backend
 - frontend
 - Linux/rede
 - modem
 - segurança
 - testes
-documentação.
+- documentação
+
 Ao final, revisar a integração entre todas as partes.
+
 ## 42. FASES OBRIGATÓRIAS
 
 **Executar nesta ordem:**
+
 - **FASE 1 — auditoria do ambiente**
 - **FASE 2 — arquitetura**
 - **FASE 3 — estrutura do repositório**
@@ -1286,9 +1603,13 @@ Ao final, revisar a integração entre todas as partes.
 ## 43. OBSERVAÇÃO SOBRE IMAGEM DE MICROSD
 
 O principal produto deverá ser o ZIP instalável.
-Opcionalmente, caso o ambiente permita manipular imagens ARM64 com segurança, criar também um script:
-- build-image.sh
+
+**Opcionalmente, caso o ambiente permita manipular imagens ARM64 com segurança, criar também um script:**
+
+- `build-image.sh`
+
 **Esse script poderá:**
+
 - receber uma imagem Debian/Armbian compatível
 - montar a imagem
 - copiar o instalador
@@ -1296,12 +1617,16 @@ Opcionalmente, caso o ambiente permita manipular imagens ARM64 com segurança, c
 - expandir filesystem
 - habilitar SSH
 - configurar hostname
-preparar instalação automática.
+- preparar instalação automática
+
 Não distribuir uma imagem .img sem validar compatibilidade específica com o NanoPi NEO3 Plus.
+
 Priorizar o ZIP, pois ele pode ser usado sobre uma imagem oficial compatível.
+
 ## 44. ENTREGA
 
 **Ao concluir, apresente:**
+
 - caminho do ZIP
 - checksum SHA-256
 - versão
@@ -1313,5 +1638,6 @@ Priorizar o ZIP, pois ele pode ser usado sobre uma imagem oficial compatível.
 - instruções para copiar para o microSD
 - instruções de primeiro boot
 - instruções de instalação
-instruções de recuperação.
+- instruções de recuperação
+
 O trabalho somente estará concluído quando existir um ZIP funcional, validado e documentado.
