@@ -97,6 +97,11 @@ jobs:
       - name: Install build dependencies
         run: ./scripts/install-build-env.sh source-lock.json
 
+      - name: Configure build Git identity
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
       - name: Verify disk after dependency installation
         run: ./scripts/prepare-runner.sh
 
@@ -149,6 +154,11 @@ jobs:
 
       - name: Install build dependencies
         run: ./scripts/install-build-env.sh source-lock.json
+
+      - name: Configure build Git identity
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
       - name: Verify disk after dependency installation
         run: ./scripts/prepare-runner.sh
@@ -207,6 +217,13 @@ jobs:
           gh release edit "$RELEASE_TAG" \
             --title "FriendlyWrt $VERSION · NanoPi NEO3 Plus + FM350-GL" \
             --notes-file artifacts/release-notes.md --draft=false --latest
+          failure_issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search 'Automated FriendlyWrt release failed in:title' \
+            --json number --jq '.[0].number // empty')
+          if [[ -n "$failure_issue" ]]; then
+            gh issue close "$failure_issue" --repo "$GITHUB_REPOSITORY" \
+              --comment "Resolved by release $RELEASE_TAG."
+          fi
           echo "### Published" >>"$GITHUB_STEP_SUMMARY"
           echo "[$RELEASE_TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG)" \
             >>"$GITHUB_STEP_SUMMARY"
