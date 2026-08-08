@@ -1,0 +1,35 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install validators
+        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-yaml
+
+      - name: Check shell syntax and style
+        run: |
+          grep -rlZE '^#!.*(ba)?sh' scripts tests overlay |
+            xargs -0 shellcheck -x
+
+      - name: Validate YAML syntax
+        run: |
+          python3 -c 'import pathlib, yaml; [yaml.safe_load(path.read_text()) for path in pathlib.Path(".github/workflows").glob("*.yml")]'
+
+      - name: Validate repository invariants
+        run: ./scripts/validate-repository.sh
+
+      - name: Check whitespace
+        run: git diff --check HEAD~1 HEAD || git diff --check

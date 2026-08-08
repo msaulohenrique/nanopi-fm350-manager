@@ -1,0 +1,14 @@
+#!/bin/sh
+
+[ "$ACTION" = "add" ] || exit 0
+
+case "${PRODUCT:-}" in
+	0e8d/7126/*|0e8d/7127/*)
+		(
+			sleep 3
+			/usr/sbin/fm350-autoconfig --wait 30
+		) &
+		;;
+esac
+
+exit 0

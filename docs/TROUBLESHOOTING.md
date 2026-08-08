@@ -1,62 +1,35 @@
-# Guia de Troubleshooting - NanoPi FM350 Manager
+# Troubleshooting
 
-## Problemas Comuns e Soluções
+## No maintenance page
 
-### 1. Modem Não Detectado
-**Sintomas**: ModemManager não mostra o FM350-GL.
+Connect a computer directly to the RJ45 and configure:
 
-**Soluções**:
-```bash
-lsusb | grep Fibocom
-mmcli -L
-sudo systemctl restart ModemManager
-sudo bash scripts/detector.sh
-```
-Verifique conexão USB na Waveshare e alimentação externa.
+- address: `192.168.77.2`;
+- mask: `255.255.255.0`;
+- gateway and DNS: `192.168.77.1`.
 
-### 2. Sem Conexão de Dados (APN)
-**Soluções**:
-- Verifique APN na página **Configuração de APN**
-- APNs comuns:
-  - Vivo: `zap.vivo.com.br`
-  - Claro: `claro.br`
-- Reinicie bearer: botão "Reconectar" no dashboard
+Then try `ping 192.168.77.1` and open `https://192.168.77.1/`. There is intentionally no DHCP server on this subnet.
 
-### 3. Painel Web Inacessível
-```bash
-sudo systemctl status nginx
-sudo systemctl status nanopi-fm350-api.service
-ip addr show
-```
-Verifique firewall e IP da LAN (192.168.8.1).
+## FM350 is not connected
 
-### 4. Velocidade Baixa / Sinal Fraco
-- Verifique antenas
-- Use página **Bandas** para bloquear bandas ruins
-- Consulte **Diagnósticos de Rede**
+Check the SIM first: it must be active and unlocked. On the NanoPi, collect:
 
-### 5. Erros de PIN/SIM
-- Página **Gerenciamento de SIM**
-- Use comando AT via terminal seguro: `AT+CPIN?`
-
-### 6. Watchdog Reiniciando Constantemente
-Ajuste configurações na página de **Alertas** ou desabilite níveis agressivos.
-
-### 7. Logs Úteis
-```bash
-journalctl -u nanopi-fm350-api.service -n 100
-mmcli -m 0
-dmesg | grep -i usb
+```sh
+lsusb
+/usr/sbin/fm350-find-port
+uci show network.cellular
+logread -e fm350
+ifstatus cellular
 ```
 
-### 8. Reset Completo
-```bash
-sudo bash uninstall.sh --keep-configs
-sudo bash install.sh
-```
+Expected USB IDs are `0e8d:7126` or `0e8d:7127`. The detector accepts interface 04 for mode 40 and interface 06 for mode 41. If the modem exposes another layout, open an issue with `lsusb -t` and the `/sys/class/tty/<device>/device` path.
 
-## Gerar Pacote de Diagnóstico
-Na interface web → **Diagnósticos** → "Gerar Pacote Completo"
+## Ethernet fallback does not route
 
-**Ainda com problema?**  
-Execute `sudo bash diagnostics.sh` e envie o relatório.
+The upstream router must offer DHCP. Confirm that `ifstatus wan` has an address and that its default route uses metric 20. Cellular uses metric 10 and is intentionally preferred while healthy.
+
+## Automated build failed
+
+Open the issue created by the release workflow and follow its Actions run link. Frequent causes are an upstream manifest rename, a package change incompatible with the newest FriendlyWrt line, less than 35 GB available after runner cleanup, or a stage exceeding six hours.
+
+The workflow never publishes an image after a failed build. Incomplete draft releases are removed automatically.

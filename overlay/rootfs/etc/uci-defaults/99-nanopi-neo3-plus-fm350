@@ -1,0 +1,99 @@
+#!/bin/sh
+
+# The only RJ45 is a DHCP WAN and also a static, DHCP-free maintenance alias.
+uci -q batch <<'EOF'
+set network.wan=interface
+set network.wan.proto='dhcp'
+set network.wan.device='eth0'
+set network.wan.metric='20'
+
+delete network.lan
+set network.maintenance=interface
+set network.maintenance.proto='static'
+set network.maintenance.device='@wan'
+set network.maintenance.ipaddr='192.168.77.1'
+set network.maintenance.netmask='255.255.255.0'
+set network.maintenance.defaultroute='0'
+set network.maintenance.peerdns='0'
+set network.maintenance.delegate='0'
+
+set network.cellular=interface
+set network.cellular.proto='xmm'
+set network.cellular.apn='surf.br'
+set network.cellular.pdp='ip'
+set network.cellular.profile='1'
+set network.cellular.delay='10'
+set network.cellular.maxfail='20'
+set network.cellular.defaultroute='1'
+set network.cellular.peerdns='1'
+set network.cellular.metric='10'
+
+delete dhcp.lan
+set dhcp.maintenance=dhcp
+set dhcp.maintenance.interface='maintenance'
+set dhcp.maintenance.ignore='1'
+
+set dropbear.main.PasswordAuth='off'
+set dropbear.main.RootPasswordAuth='off'
+set dropbear.main.Interface='maintenance'
+
+set system.@system[0].hostname='nanopi-neo3-plus'
+set system.@system[0].zonename='America/Sao_Paulo'
+set system.@system[0].timezone='<-03>3'
+
+delete uhttpd.main.listen_http
+add_list uhttpd.main.listen_http='192.168.77.1:80'
+delete uhttpd.main.listen_https
+add_list uhttpd.main.listen_https='192.168.77.1:443'
+set uhttpd.main.redirect_https='1'
+EOF
+
+wan_zone=$(uci show firewall | sed -n "s/^\(firewall\.[^.]*\)\.name='wan'$/\1/p" | head -n1)
+if [ -n "$wan_zone" ]; then
+	uci -q del_list "$wan_zone.network=maintenance"
+	uci add_list "$wan_zone.network=maintenance"
+	uci -q del_list "$wan_zone.network=cellular"
+	uci add_list "$wan_zone.network=cellular"
+fi
+
+# Replace a broad WAN ping rule with source-restricted maintenance rules.
+for rule in $(uci show firewall | sed -n "s/^\(firewall\.[^.]*\)\.name='Allow-Ping'$/\1/p"); do
+	uci set "$rule.enabled=0"
+done
+
+add_rule() {
+	section=$(uci add firewall rule)
+	uci set "firewall.$section.name=$1"
+	uci set "firewall.$section.src=wan"
+	uci set "firewall.$section.src_ip=192.168.77.2/32"
+	uci set "firewall.$section.target=ACCEPT"
+}
+
+add_rule 'Maintenance-SSH-LuCI'
+uci set "firewall.$section.proto=tcp"
+uci set "firewall.$section.dest_port=22 80 443"
+
+add_rule 'Maintenance-DNS'
+uci set "firewall.$section.proto=tcp udp"
+uci set "firewall.$section.dest_port=53"
+
+add_rule 'Maintenance-Ping'
+uci set "firewall.$section.proto=icmp"
+uci set "firewall.$section.icmp_type=echo-request"
+uci set "firewall.$section.family=ipv4"
+
+add_rule 'Maintenance-to-Cellular'
+uci set "firewall.$section.dest=wan"
+uci set "firewall.$section.proto=all"
+uci set "firewall.$section.family=ipv4"
+
+uci commit network
+uci commit dhcp
+uci commit firewall
+uci commit dropbear
+uci commit system
+uci commit uhttpd
+
+/etc/init.d/fm350-autoconfig enable
+logger -t firstboot 'NanoPi NEO3 Plus: FM350 surf.br and maintenance RJ45 configured'
+exit 0

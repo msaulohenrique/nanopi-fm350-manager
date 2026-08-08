@@ -1,0 +1,29 @@
+#!/bin/sh
+
+wait_seconds=0
+[ "${1:-}" = "--wait" ] && wait_seconds=${2:-0}
+
+lock_dir=/var/lock/fm350-autoconfig.lock
+mkdir "$lock_dir" 2>/dev/null || exit 0
+trap 'rmdir "$lock_dir" 2>/dev/null' EXIT INT TERM
+
+elapsed=0
+port=
+while :; do
+	port=$(/usr/sbin/fm350-find-port 2>/dev/null) && break
+	[ "$elapsed" -ge "$wait_seconds" ] && exit 1
+	sleep 2
+	elapsed=$((elapsed + 2))
+done
+
+current=$(uci -q get network.cellular.device)
+if [ "$current" != "$port" ]; then
+	uci set network.cellular.device="$port"
+	uci commit network
+	logger -t fm350 "AT port detected at $port; cellular configuration updated"
+	/etc/init.d/network reload
+else
+	ifup cellular 2>/dev/null || true
+fi
+
+exit 0

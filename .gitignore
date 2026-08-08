@@ -1,0 +1,22 @@
+# Build workspaces and generated artifacts
+/artifacts/
+/work/
+/source-lock.json
+*.img
+*.img.gz
+*.tar.gz
+*.tar.zst
+SHA256SUMS
+
+# Local credentials must never be committed
+/.secrets/
+authorized_keys
+root-password.hash
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+__pycache__/
+*.pyc
