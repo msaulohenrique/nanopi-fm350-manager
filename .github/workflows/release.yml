@@ -224,16 +224,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          if [[ $(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null) == true ]]; then
-            gh release delete "$RELEASE_TAG" --cleanup-tag --yes
+          if release_draft=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft --jq .isDraft 2>/dev/null); then
+            if [[ "$release_draft" == true ]]; then
+              gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+                --cleanup-tag --yes
+            fi
           fi
           title='Automated FriendlyWrt release failed'
           body="Workflow failed: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          issue=$(gh issue list --state open --search "$title in:title" \
+          issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search "$title in:title" \
             --json number --jq '.[0].number // empty')
           if [[ -n "$issue" ]]; then
-            gh issue comment "$issue" --body "$body"
+            gh issue comment "$issue" --repo "$GITHUB_REPOSITORY" --body "$body"
           else
-            gh issue create --title "$title" --body "$body" --label bug || \
-              gh issue create --title "$title" --body "$body"
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$title" --body "$body" --label bug || \
+              gh issue create --repo "$GITHUB_REPOSITORY" \
+                --title "$title" --body "$body"
           fi

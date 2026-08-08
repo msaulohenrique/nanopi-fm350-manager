@@ -27,12 +27,14 @@ manifest_url=$(python3 "$SCRIPT_DIR/lock-query.py" "$lock" get manifest.url)
 manifest_branch=$(python3 "$SCRIPT_DIR/lock-query.py" "$lock" get manifest.branch)
 manifest_file=$(python3 "$SCRIPT_DIR/lock-query.py" "$lock" get manifest.file)
 repo_tool_url=$(python3 "$SCRIPT_DIR/lock-query.py" "$lock" resource repo_tool url)
+repo_tool_commit=$(python3 "$SCRIPT_DIR/lock-query.py" "$lock" resource repo_tool commit)
 
 mkdir -p "$destination"
 destination=$(realpath "$destination")
 cd "$destination"
 repo init --depth=1 -u "$manifest_url" -b "$manifest_branch" \
-	-m "$manifest_file" --repo-url="$repo_tool_url" --no-clone-bundle
+	-m "$manifest_file" --repo-url="$repo_tool_url" \
+	--repo-rev="$repo_tool_commit" --no-clone-bundle
 repo sync -c --no-clone-bundle -j"$(nproc)" "${paths[@]}"
 
 while IFS=$'\t' read -r path url _ref commit; do

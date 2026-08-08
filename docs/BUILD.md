@@ -8,7 +8,7 @@ The repository contains only the customization and orchestration code. It does n
 
 - [koshev-msk/modemfeed](https://github.com/koshev-msk/modemfeed);
 - [friendlyarm/build-env-on-ubuntu-bionic](https://github.com/friendlyarm/build-env-on-ubuntu-bionic);
-- [friendlyarm/repo](https://github.com/friendlyarm/repo).
+- the official [Gerrit `git-repo`](https://github.com/GerritCodeReview/git-repo) mirror.
 
 The fingerprint excludes its generation timestamp and includes all build-input blobs from this repository. The same inputs therefore produce the same release tag, while any firmware customization or upstream commit creates a new tag.
 
