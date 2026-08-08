@@ -1,0 +1,13 @@
+# Fibocom FM350-GL (MediaTek T700) through USB RNDIS and its AT port.
+CONFIG_PACKAGE_xmm-modem=y
+CONFIG_PACKAGE_luci-proto-xmm=y
+CONFIG_PACKAGE_comgt=y
+CONFIG_PACKAGE_kmod-usb-acm=y
+CONFIG_PACKAGE_kmod-usb-serial=y
+CONFIG_PACKAGE_kmod-usb-serial-option=y
+CONFIG_PACKAGE_kmod-usb-net=y
+CONFIG_PACKAGE_kmod-usb-net-cdc-ether=y
+CONFIG_PACKAGE_kmod-usb-net-cdc-ncm=y
+CONFIG_PACKAGE_kmod-usb-net-rndis=y
+CONFIG_PACKAGE_usbutils=y
+CONFIG_PACKAGE_picocom=y

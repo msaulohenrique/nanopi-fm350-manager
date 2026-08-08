@@ -1,0 +1,239 @@
+name: Build and release FriendlyWrt
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: FriendlyWrt version, for example 25.12; empty means latest
+        required: false
+        type: string
+      force_release:
+        description: Build even when this upstream fingerprint was already released
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release.yml'
+      - 'config/**'
+      - 'overlay/**'
+      - 'scripts/**'
+      - 'targets/**'
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: friendlywrt-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    outputs:
+      should_build: ${{ steps.decision.outputs.should_build }}
+      tag: ${{ steps.decision.outputs.tag }}
+      version: ${{ steps.discover.outputs.version }}
+      fingerprint: ${{ steps.discover.outputs.fingerprint }}
+      lock_b64: ${{ steps.discover.outputs.lock_b64 }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Resolve upstream commits
+        id: discover
+        env:
+          FRIENDLYWRT_VERSION_OVERRIDE: ${{ inputs.version }}
+        run: ./scripts/discover-upstream.sh source-lock.json
+
+      - name: Decide whether a build is needed
+        id: decision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_TAG: ${{ steps.discover.outputs.tag }}
+          FORCE_RELEASE: ${{ inputs.force_release || 'false' }}
+        run: |
+          tag=$BASE_TAG
+          should_build=true
+          if release_json=$(gh release view "$tag" --json isDraft 2>/dev/null); then
+            is_draft=$(printf '%s' "$release_json" | jq -r .isDraft)
+            if [[ "$is_draft" != "true" && "$FORCE_RELEASE" != "true" ]]; then
+              should_build=false
+            elif [[ "$is_draft" != "true" ]]; then
+              tag="${tag}-r${GITHUB_RUN_NUMBER}"
+            fi
+          fi
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+          echo "should_build=$should_build" >>"$GITHUB_OUTPUT"
+          echo "### Release decision" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Tag: \`$tag\`" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Build: \`$should_build\`" >>"$GITHUB_STEP_SUMMARY"
+
+  rootfs:
+    needs: prepare
+    if: needs.prepare.outputs.should_build == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    outputs:
+      rootfs_filename: ${{ steps.build.outputs.rootfs_filename }}
+      host_pm_filename: ${{ steps.build.outputs.host_pm_filename }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore exact source lock
+        env:
+          LOCK_B64: ${{ needs.prepare.outputs.lock_b64 }}
+        run: printf '%s' "$LOCK_B64" | base64 -d >source-lock.json
+
+      - name: Free runner disk
+        run: ./scripts/prepare-runner.sh
+
+      - name: Install build dependencies
+        run: ./scripts/install-build-env.sh source-lock.json
+
+      - name: Verify disk after dependency installation
+        run: ./scripts/prepare-runner.sh
+
+      - name: Install pinned repo tool
+        run: |
+          ./scripts/install-repo-tool.sh source-lock.json
+          echo "$HOME/.local/bin" >>"$GITHUB_PATH"
+
+      - name: Synchronize rootfs sources
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ./scripts/sync-sources.sh source-lock.json work rootfs
+
+      - name: Compile FriendlyWrt rootfs
+        id: build
+        run: ./scripts/build-rootfs.sh source-lock.json work artifacts
+
+      - name: Create draft release and upload intermediate files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --draft \
+              --title "FriendlyWrt $VERSION · NanoPi NEO3 Plus + FM350-GL" \
+              --notes "Build in progress. Assets are published only after validation."
+          fi
+          gh release upload "$RELEASE_TAG" \
+            "artifacts/${{ steps.build.outputs.rootfs_filename }}" \
+            "artifacts/${{ steps.build.outputs.host_pm_filename }}" \
+            source-lock.json --clobber
+
+  image:
+    needs: [prepare, rootfs]
+    if: needs.prepare.outputs.should_build == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore exact source lock
+        env:
+          LOCK_B64: ${{ needs.prepare.outputs.lock_b64 }}
+        run: printf '%s' "$LOCK_B64" | base64 -d >source-lock.json
+
+      - name: Free runner disk
+        run: ./scripts/prepare-runner.sh
+
+      - name: Install build dependencies
+        run: ./scripts/install-build-env.sh source-lock.json
+
+      - name: Verify disk after dependency installation
+        run: ./scripts/prepare-runner.sh
+
+      - name: Install pinned repo tool
+        run: |
+          ./scripts/install-repo-tool.sh source-lock.json
+          echo "$HOME/.local/bin" >>"$GITHUB_PATH"
+
+      - name: Synchronize image sources
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ./scripts/sync-sources.sh source-lock.json work image
+
+      - name: Download intermediate rootfs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          mkdir -p intermediate
+          gh release download "$RELEASE_TAG" \
+            --pattern '${{ needs.rootfs.outputs.rootfs_filename }}' --dir intermediate
+          gh release download "$RELEASE_TAG" \
+            --pattern '${{ needs.rootfs.outputs.host_pm_filename }}' --dir intermediate
+
+      - name: Build and validate SD image
+        id: image
+        env:
+          AUTHORIZED_KEYS: ${{ secrets.AUTHORIZED_KEYS }}
+          ROOT_PASSWORD_HASH: ${{ secrets.ROOT_PASSWORD_HASH }}
+        run: |
+          ./scripts/build-image.sh source-lock.json work \
+            "intermediate/${{ needs.rootfs.outputs.rootfs_filename }}" \
+            "intermediate/${{ needs.rootfs.outputs.host_pm_filename }}" artifacts
+
+      - name: Generate multilingual release notes
+        run: |
+          ./scripts/generate-release-notes.py source-lock.json \
+            --image '${{ steps.image.outputs.image_filename }}' \
+            --output artifacts/release-notes.md
+
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            "artifacts/${{ steps.image.outputs.image_filename }}" \
+            artifacts/SHA256SUMS artifacts/RAW_IMAGE_SHA256 \
+            artifacts/source-lock.json --clobber
+          gh release delete-asset "$RELEASE_TAG" \
+            '${{ needs.rootfs.outputs.rootfs_filename }}' --yes
+          gh release delete-asset "$RELEASE_TAG" \
+            '${{ needs.rootfs.outputs.host_pm_filename }}' --yes
+          gh release edit "$RELEASE_TAG" \
+            --title "FriendlyWrt $VERSION · NanoPi NEO3 Plus + FM350-GL" \
+            --notes-file artifacts/release-notes.md --draft=false --latest
+          echo "### Published" >>"$GITHUB_STEP_SUMMARY"
+          echo "[$RELEASE_TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG)" \
+            >>"$GITHUB_STEP_SUMMARY"
+
+  cleanup-on-failure:
+    needs: [prepare, rootfs, image]
+    if: >-
+      ${{ always() && needs.prepare.outputs.should_build == 'true' &&
+          (needs.rootfs.result == 'failure' || needs.image.result == 'failure') }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Remove incomplete draft and report failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          if [[ $(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null) == true ]]; then
+            gh release delete "$RELEASE_TAG" --cleanup-tag --yes
+          fi
+          title='Automated FriendlyWrt release failed'
+          body="Workflow failed: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          issue=$(gh issue list --state open --search "$title in:title" \
+            --json number --jq '.[0].number // empty')
+          if [[ -n "$issue" ]]; then
+            gh issue comment "$issue" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body" --label bug || \
+              gh issue create --title "$title" --body "$body"
+          fi

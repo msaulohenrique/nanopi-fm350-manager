@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# USB mode 40 (0e8d:7126) uses interface 04. The default USB mode 41
+# (0e8d:7127) uses interface 06. Return only the matching AT device.
+sys_class_tty=${FM350_SYS_CLASS_TTY:-/sys/class/tty}
+
+for tty_path in "$sys_class_tty"/ttyUSB* "$sys_class_tty"/ttyACM*; do
+	[ -e "$tty_path/device" ] || continue
+	real=$(readlink -f "$tty_path/device" 2>/dev/null) || continue
+	iface_path=$real
+
+	while [ "$iface_path" != "/" ]; do
+		[ -f "$iface_path/bInterfaceNumber" ] && break
+		iface_path=$(dirname "$iface_path")
+	done
+	[ -f "$iface_path/bInterfaceNumber" ] || continue
+
+	usb_path=$(dirname "$iface_path")
+	[ -f "$usb_path/idVendor" ] || continue
+	[ -f "$usb_path/idProduct" ] || continue
+
+	vid=$(cat "$usb_path/idVendor" 2>/dev/null)
+	pid=$(cat "$usb_path/idProduct" 2>/dev/null)
+	iface=$(cat "$iface_path/bInterfaceNumber" 2>/dev/null)
+
+	case "${vid}${pid}:${iface}" in
+		0e8d7126:04|0e8d7127:06)
+			printf '/dev/%s\n' "${tty_path##*/}"
+			exit 0
+			;;
+	esac
+done
+
+exit 1
