@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install validators
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-yaml
 
       - name: Check shell syntax and style
         run: |
@@ -26,7 +26,7 @@ jobs:
 
       - name: Validate YAML syntax
         run: |
-          ruby -e 'require "yaml"; Dir[".github/workflows/*.yml"].each { |f| YAML.load_file(f, aliases: true) }'
+          python3 -c 'import pathlib, yaml; [yaml.safe_load(path.read_text()) for path in pathlib.Path(".github/workflows").glob("*.yml")]'
 
       - name: Validate repository invariants
         run: ./scripts/validate-repository.sh
