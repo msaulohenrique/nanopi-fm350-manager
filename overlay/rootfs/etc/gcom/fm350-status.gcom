@@ -1,0 +1,21 @@
+opengt
+ set com 115200n81
+ set comecho off
+ set senddelay 0.02
+ waitquiet 0.2 0.2
+
+ send "AT+CPIN?^m"
+ get 1 "" $s
+ print $s
+ send "AT+COPS?^m"
+ get 1 "" $s
+ print $s
+ send "AT+CEREG?^m"
+ get 1 "" $s
+ print $s
+ send "AT+CSQ^m"
+ get 1 "" $s
+ print $s
+ send "AT+CESQ^m"
+ get 1 "" $s
+ print $s

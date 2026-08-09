@@ -1,0 +1,120 @@
+#!/bin/sh
+
+# shellcheck disable=SC1091
+. /usr/share/libubox/jshn.sh
+
+fail() {
+	json_init
+	json_add_boolean ok 0
+	json_add_string message "$1"
+	json_dump
+	exit 1
+}
+
+band_label() {
+	code=$1
+	case "$code" in
+		50*) printf 'n%s' "${code#50}" ;;
+		1[0-9][0-9]) printf 'B%s' "$((code - 100))" ;;
+		[1-9]|[1-9][0-9]) printf 'WCDMA B%s' "$code" ;;
+		*) printf '%s' "$code" ;;
+	esac
+}
+
+format_csv_bands() {
+	type=$1
+	csv=$2
+	result=
+	old_ifs=$IFS
+	IFS=,
+	for code in $csv; do
+		case "$type:$code" in
+			umts:[1-9]|umts:[1-9][0-9]|lte:1[0-9][0-9]|nr:50*) ;;
+			*) continue ;;
+		esac
+		label=$(band_label "$code")
+		[ -n "$result" ] && result="$result, "
+		result="$result$label"
+	done
+	IFS=$old_ifs
+	printf '%s' "$result"
+}
+
+bandwidth_label() {
+	case "$1" in
+		6) printf '1.4 MHz' ;; 15) printf '3 MHz' ;; 25) printf '5 MHz' ;;
+		50) printf '10 MHz' ;; 75) printf '15 MHz' ;; 100) printf '20 MHz' ;;
+		125) printf '25 MHz' ;; 150) printf '30 MHz' ;; 200) printf '40 MHz' ;;
+		250) printf '50 MHz' ;; 300) printf '60 MHz' ;; 400) printf '80 MHz' ;;
+		450) printf '90 MHz' ;; 500) printf '100 MHz' ;; 1000) printf '200 MHz' ;;
+		2000) printf '400 MHz' ;; *) printf '%s' "$1" ;;
+	esac
+}
+
+device=$(uci -q get network.cellular.device)
+[ -c "$device" ] || fail 'FM350 AT port is not available'
+lock_dir=/tmp/fm350-at.lock
+mkdir "$lock_dir" 2>/dev/null || fail 'The modem is busy; try again shortly'
+temp_file=
+cleanup() {
+	if [ -n "$temp_file" ]; then
+		rm -f "$temp_file"
+	fi
+	rmdir "$lock_dir" 2>/dev/null
+}
+trap cleanup 0 1 2 15
+temp_file=$(mktemp /tmp/fm350-radio.XXXXXX) || fail 'Unable to create radio workspace'
+
+output=$(timeout 20 gcom -d "$device" -s /etc/gcom/fm350-radio.gcom 2>/dev/null) || fail 'Unable to query radio information'
+output=$(printf '%s' "$output" | tr -d '\r')
+erat=$(printf '%s\n' "$output" | sed -n 's/^+ERAT: *\([^,]*\).*/\1/p' | head -n1)
+gtact_read=$(printf '%s\n' "$output" | grep '^+GTACT:' | sed -n '1p')
+gtact_supported=$(printf '%s\n' "$output" | grep '^+GTACT:' | sed -n '2p')
+
+case "$erat" in
+	2) technology='3G UMTS' ;; 4) technology='3G HSDPA' ;; 5) technology='3G HSUPA' ;;
+	6) technology='3G HSPA+' ;; 7) technology='4G LTE' ;; 10) technology='4G LTE (5G core)' ;;
+	11) technology='5G NR SA' ;; 12) technology='5G NR (EPS core)' ;;
+	13) technology='5G NR (NG-RAN)' ;; 14) technology='5G NSA (LTE-NR EN-DC)' ;;
+	*) technology='Unknown' ;;
+esac
+
+configured_csv=$(printf '%s\n' "${gtact_read#*: }" | awk -F, '{ for (i=4; i<=NF; i++) printf "%s%s", (i == 4 ? "" : ","), $i }')
+configured=
+old_ifs=$IFS
+IFS=,
+for code in $configured_csv; do
+	label=$(band_label "$code")
+	[ -n "$configured" ] && configured="$configured, "
+	configured="$configured$label"
+done
+IFS=$old_ifs
+
+groups=$(printf '%s\n' "${gtact_supported#*: }" | sed 's/),(/\n/g; s/[()]//g')
+umts=$(printf '%s\n' "$groups" | sed -n '5p')
+lte=$(printf '%s\n' "$groups" | sed -n '6p')
+nr=$(printf '%s\n' "$groups" | sed -n '9p')
+supported="$(format_csv_bands umts "$umts"); $(format_csv_bands lte "$lte"); $(format_csv_bands nr "$nr")"
+
+printf '%s\n' "$output" | grep '^PCC:' >"$temp_file" || true
+in_use=
+while IFS= read -r line; do
+	values=${line#PCC:}
+	code=$(printf '%s' "$values" | cut -d, -f1)
+	pci=$(printf '%s' "$values" | cut -d, -f2)
+	channel=$(printf '%s' "$values" | cut -d, -f3)
+	bandwidth=$(printf '%s' "$values" | cut -d, -f4)
+	label=$(band_label "$code")
+	bw=$(bandwidth_label "$bandwidth")
+	[ -n "$in_use" ] && in_use="$in_use; "
+	in_use="$in_use$label ($bw, channel $channel, PCI $pci)"
+done <"$temp_file"
+
+json_init
+json_add_boolean ok 1
+json_add_string technology "$technology"
+json_add_string rat_code "${erat:-unknown}"
+json_add_string bands_in_use "${in_use:-unknown}"
+json_add_string configured_bands "${configured:-automatic}"
+json_add_string supported_bands "${supported:-unknown}"
+json_dump

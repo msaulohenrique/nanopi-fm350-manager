@@ -1,0 +1,29 @@
+opengt
+ set com 115200n81
+ set comecho off
+ set senddelay 0.02
+ waitquiet 0.2 0.2
+
+ send "AT+CMGF=1^m"
+ waitfor 10 "OK","ERROR"
+ if % != 0 goto error
+
+ send "AT+CSCS=\"GSM\"^m"
+ waitfor 10 "OK","ERROR"
+ if % != 0 goto error
+
+ send "AT+CPMS=\""
+ send $env("SMS_STORAGE")
+ send "\"^m"
+ waitfor 10 "OK","ERROR"
+ if % != 0 goto error
+
+ send "AT+CMGD="
+ send $env("SMS_INDEX")
+ send "^m"
+ waitfor 15 "OK","ERROR"
+ if % != 0 goto error
+ exit 0
+
+:error
+ exit 1

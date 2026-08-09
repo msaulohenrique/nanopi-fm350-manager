@@ -2,13 +2,13 @@
 
 ## No maintenance page
 
-Connect a computer directly to the RJ45 and configure:
+Connect a computer directly to the RJ45 and first leave IPv4 on DHCP/automatic. If it does not receive a lease, use the recovery settings:
 
 - address: `192.168.77.2`;
 - mask: `255.255.255.0`;
 - gateway and DNS: `192.168.77.1`.
 
-Then try `ping 192.168.77.1` and open `https://192.168.77.1/`. There is intentionally no DHCP server on this subnet.
+Then try `ping 192.168.77.1` and open `https://192.168.77.1/`. The normal DHCP range is `192.168.77.100–149`.
 
 ## FM350 is not connected
 
@@ -24,9 +24,9 @@ ifstatus cellular
 
 Expected USB IDs are `0e8d:7126` or `0e8d:7127`. The detector accepts interface 04 for mode 40 and interface 06 for mode 41. If the modem exposes another layout, open an issue with `lsusb -t` and the `/sys/class/tty/<device>/device` path.
 
-## Ethernet fallback does not route
+## Downstream router has no Internet
 
-The upstream router must offer DHCP. Confirm that `ifstatus wan` has an address and that its default route uses metric 20. Cellular uses metric 10 and is intentionally preferred while healthy.
+Connect the NanoPi RJ45 to the downstream router's WAN/Internet port and configure that port for DHCP. Confirm that it received an address from `192.168.77.100–149`, gateway/DNS `192.168.77.1`, and that `ifstatus cellular` is up. The downstream LAN cannot also use `192.168.77.0/24`; change it to a different subnet such as `192.168.1.0/24`.
 
 ## Automated build failed
 

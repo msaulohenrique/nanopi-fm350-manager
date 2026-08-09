@@ -1,0 +1,18 @@
+opengt
+ set com 115200n81
+ set comecho off
+ set senddelay 0.02
+ waitquiet 0.2 0.2
+
+ send "AT+ERAT?^m"
+ get 1 "" $s
+ print $s
+ send "AT+GTACT?^m"
+ get 1 "" $s
+ print $s
+ send "AT+GTACT=?^m"
+ get 2 "" $s
+ print $s
+ send "AT+GTCAINFO?^m"
+ get 3 "" $s
+ print $s

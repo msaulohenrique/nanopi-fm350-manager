@@ -1,0 +1,13 @@
+#!/bin/sh
+
+[ "${ACTION:-}" = 'released' ] || exit 0
+
+lock_dir=/var/run/nanopi-button-reboot.lock
+mkdir "$lock_dir" 2>/dev/null || exit 0
+
+logger -t button 'NanoPi GPIO button released; reboot requested'
+echo 'GPIO BUTTON: REBOOT' >/dev/console
+sync
+reboot
+
+exit 0

@@ -1,0 +1,121 @@
+#!/bin/sh
+
+# shellcheck disable=SC1091
+. /usr/share/libubox/jshn.sh
+
+reply() {
+	json_init
+	json_add_boolean ok "$1"
+	json_add_string message "$2"
+	json_dump
+}
+
+action=${1:-status}
+case "$action" in
+	status)
+		exec /usr/sbin/fm350-status
+		;;
+	connect)
+		ifup cellular >/dev/null 2>&1 || {
+			reply 0 'Unable to start cellular interface'
+			exit 1
+		}
+		reply 1 'Cellular connection started'
+		;;
+	disconnect)
+		ifdown cellular >/dev/null 2>&1 || true
+		reply 1 'Cellular connection stopped'
+		;;
+	reconnect)
+		ifdown cellular >/dev/null 2>&1 || true
+		sleep 2
+		ifup cellular >/dev/null 2>&1 || {
+			reply 0 'Unable to restart cellular interface'
+			exit 1
+		}
+		reply 1 'Cellular connection restarted'
+		;;
+	autodetect)
+		/usr/sbin/fm350-autoconfig --wait 30 >/dev/null 2>&1 || {
+			reply 0 'FM350 AT port was not detected'
+			exit 1
+		}
+		reply 1 'FM350 AT port detected and saved'
+		;;
+	configure)
+		apn=${2:-}
+		pdp=${3:-}
+		profile=${4:-}
+		pincode=${5:-}
+		auth=${6:-none}
+		username=${7:-}
+		password=${8:-}
+		case "$apn" in
+			''|*[!A-Za-z0-9._-]*) reply 0 'Invalid APN'; exit 2 ;;
+		esac
+		case "$pdp" in
+			IP|IPV4V6|IPV6) ;;
+			*) reply 0 'Invalid PDP type'; exit 2 ;;
+		esac
+		case "$profile" in
+			''|*[!0-9]*) reply 0 'Invalid profile'; exit 2 ;;
+		esac
+		if [ "$profile" -lt 1 ] || [ "$profile" -gt 16 ]; then
+			reply 0 'Profile must be between 1 and 16'
+			exit 2
+		fi
+		case "$pincode" in
+			''|__CLEAR__) ;;
+			*[!0-9]*) reply 0 'SIM PIN must contain only digits'; exit 2 ;;
+			*)
+				if [ "${#pincode}" -lt 4 ] || [ "${#pincode}" -gt 8 ]; then
+					reply 0 'SIM PIN must have 4 to 8 digits'
+					exit 2
+				fi
+				;;
+		esac
+		case "$auth" in none|pap|chap) ;; *) reply 0 'Invalid authentication type'; exit 2 ;; esac
+		if [ "${#username}" -gt 128 ] || [ "${#password}" -gt 128 ]; then
+			reply 0 'Username or password is too long'
+			exit 2
+		fi
+		printf '%s%s' "$username" "$password" | grep -q '[[:cntrl:]]' && {
+			reply 0 'Credentials contain control characters'
+			exit 2
+		}
+		if [ "$auth" != none ]; then
+			effective_username=${username:-$(uci -q get network.cellular.username)}
+			effective_password=${password:-$(uci -q get network.cellular.password)}
+			if [ -z "$effective_username" ] || [ -z "$effective_password" ]; then
+				reply 0 'Username and password are required for authentication'
+				exit 2
+			fi
+		fi
+		uci set network.cellular.apn="$apn"
+		uci set network.cellular.pdp="$pdp"
+		uci set network.cellular.profile="$profile"
+		case "$pincode" in
+			__CLEAR__) uci -q delete network.cellular.pincode ;;
+			'') ;;
+			*) uci set network.cellular.pincode="$pincode" ;;
+		esac
+		if [ "$auth" = none ]; then
+			uci -q delete network.cellular.auth
+			uci -q delete network.cellular.username
+			uci -q delete network.cellular.password
+		else
+			uci set network.cellular.auth="$auth"
+			uci set network.cellular.username="$effective_username"
+			uci set network.cellular.password="$effective_password"
+		fi
+		uci commit network
+		ifdown cellular >/dev/null 2>&1 || true
+		sleep 2
+		ifup cellular >/dev/null 2>&1 || true
+		reply 1 'Configuration saved; cellular interface is reconnecting'
+		;;
+	*)
+		reply 0 'Unsupported action'
+		exit 2
+		;;
+esac
