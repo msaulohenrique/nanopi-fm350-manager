@@ -63,6 +63,8 @@ grep -q "set network.maintenance.device='eth0'" \
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
 grep -q "set dhcp.maintenance.ignore='0'" \
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
+# Assert the literal variable reference in source.
+# shellcheck disable=SC2016
 grep -q 'uci add_list "$wan_zone.network=cellular"' \
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
 grep -q "set dropbear.main.PasswordAuth='on'" \
@@ -77,7 +79,10 @@ if grep -Eq 'json_add_string (pincode|password|username)' overlay/rootfs/usr/sbi
 	echo "The status API must not expose stored cellular secrets" >&2
 	exit 1
 fi
+# Assert literal build-script paths, not runtime values.
+# shellcheck disable=SC2016
 grep -q '"$ROOTFS_DIR/etc/dropbear/authorized_keys"' overlay/install.sh
+# shellcheck disable=SC2016
 if grep -q '"$ROOTFS_DIR/root/.ssh/authorized_keys"' overlay/install.sh; then
 	echo "OpenWrt Dropbear keys must be installed in /etc/dropbear/authorized_keys" >&2
 	exit 1
