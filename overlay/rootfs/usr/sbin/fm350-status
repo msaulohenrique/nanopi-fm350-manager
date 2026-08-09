@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# shellcheck disable=SC1091
 . /usr/share/libubox/jshn.sh
 
 status_json=$(ifstatus cellular 2>/dev/null || printf '{}')
@@ -33,12 +34,24 @@ case "$up:$pending" in
 	*:true) state=connecting ;;
 	*) state=disconnected ;;
 esac
-[ "$up" = true ] && up_boolean=1 || up_boolean=0
-[ -n "$pincode" ] && pin_configured=1 || pin_configured=0
-[ -n "$username" ] && [ -n "$password" ] && credentials_configured=1 || credentials_configured=0
+if [ "$up" = true ]; then
+	up_boolean=1
+else
+	up_boolean=0
+fi
+if [ -n "$pincode" ]; then
+	pin_configured=1
+else
+	pin_configured=0
+fi
+if [ -n "$username" ] && [ -n "$password" ]; then
+	credentials_configured=1
+else
+	credentials_configured=0
+fi
 
 at_output=
-if [ -c "$device" ] && ! ps w | grep -q "[g]com -d $device"; then
+if [ -c "$device" ] && ! pidof gcom >/dev/null 2>&1; then
 	at_output=$(timeout 12 gcom -d "$device" -s /etc/gcom/fm350-status.gcom 2>/dev/null || true)
 fi
 

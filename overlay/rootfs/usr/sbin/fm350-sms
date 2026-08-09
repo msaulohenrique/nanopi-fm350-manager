@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# shellcheck disable=SC1091
 . /usr/share/libubox/jshn.sh
 
 reply() {
@@ -28,7 +29,9 @@ lock_dir=/tmp/fm350-at.lock
 mkdir "$lock_dir" 2>/dev/null || fail 'The modem is busy; try again shortly'
 temp_file=
 cleanup() {
-	[ -n "$temp_file" ] && rm -f "$temp_file"
+	if [ -n "$temp_file" ]; then
+		rm -f "$temp_file"
+	fi
 	rmdir "$lock_dir" 2>/dev/null
 }
 trap cleanup 0 1 2 15
@@ -87,7 +90,9 @@ case "$action" in
 		text=${3:-}
 		digits=${number#+}
 		case "$digits" in ''|*[!0-9]*) fail 'Invalid destination number' 2 ;; esac
-		[ "${#digits}" -ge 8 ] && [ "${#digits}" -le 15 ] || fail 'Destination must have 8 to 15 digits' 2
+		if [ "${#digits}" -lt 8 ] || [ "${#digits}" -gt 15 ]; then
+			fail 'Destination must have 8 to 15 digits' 2
+		fi
 		[ -n "$text" ] || fail 'SMS text is empty' 2
 		[ "${#text}" -le 160 ] || fail 'SMS text exceeds 160 bytes' 2
 		printf '%s' "$text" | grep -q '[[:cntrl:]]' && fail 'SMS text contains control characters' 2

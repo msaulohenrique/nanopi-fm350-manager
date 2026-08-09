@@ -9,9 +9,9 @@ Images FriendlyWrt reproductibles et prêtes à flasher pour le NanoPi NEO3 Plus
 - Modes USB FM350-GL `0e8d:7126` et `0e8d:7127`, avec détection automatique du port AT.
 - `xmm-modem` et `luci-proto-xmm` de [modemfeed](https://github.com/koshev-msk/modemfeed).
 - Connexion cellulaire IPv4 via `surf.br`, métrique 10 et route prioritaire.
-- L’unique RJ45 comme WAN DHCP, métrique 20 et route de secours.
-- Le même RJ45 pour la maintenance sans DHCP sur `192.168.77.1/24`.
-- LuCI, SSH, DNS et transfert cellulaire limités au client de maintenance `192.168.77.2`.
+- L’interface cellulaire FM350 comme WAN Internet, avec masquerading IPv4.
+- L’unique RJ45 comme LAN DHCP pour le routeur connecté, passerelle `192.168.77.1/24`.
+- LuCI, SSH, DNS et transfert cellulaire disponibles sur le même RJ45.
 - Tableau multilingue **Réseau → FM350 Manager** avec état, configuration APN/SIM, SMS, analyse radio et commandes.
 - `sys_led` en battement système ; `user_led` pour le lien et le trafic RX/TX du FM350.
 - Accès administrateur root complet via LuCI et SSH sur l’interface de maintenance.
@@ -25,14 +25,16 @@ Images FriendlyWrt reproductibles et prêtes à flasher pour le NanoPi NEO3 Plus
 
 La carte SIM doit être active et ne pas demander de code PIN. Sinon, configurez-le dans LuCI avant d’activer l’interface cellulaire.
 
-## Un RJ45, deux usages
+## Connecter le routeur
 
-| Usage | Configuration du client | Adresse NanoPi | Résultat |
+| Connexion | Configuration du client | Adresse NanoPi | Résultat |
 | --- | --- | --- | --- |
-| WAN normal | DHCP | Attribuée par le routeur amont | Internet de secours, métrique 20 |
-| Maintenance directe | `192.168.77.2/24` ; passerelle/DNS `192.168.77.1` | `192.168.77.1` | LuCI et Internet cellulaire ; sans DHCP |
+| Port WAN du routeur | DHCP/automatique | `192.168.77.1` | Reçoit `192.168.77.100–149`, DNS et Internet cellulaire |
+| Ordinateur de maintenance direct | DHCP/automatique, ou `192.168.77.2/24` statique | `192.168.77.1` | LuCI, SSH et Internet cellulaire sur le même câble |
 
 Ouvrez `https://192.168.77.1/`. Le certificat local peut provoquer un avertissement initial du navigateur.
+
+Connectez le RJ45 du NanoPi au port **WAN/Internet** du routeur et laissez ce port en DHCP. Le LAN du routeur doit utiliser un autre sous-réseau, par exemple `192.168.1.0/24`. Le bouton GPIO utilisateur (`BTN_1`) redémarre le système lorsqu’il est relâché ; le bouton **MASK** conserve sa fonction de récupération.
 
 Sans `ROOT_PASSWORD_HASH`, l’image conserve les identifiants FriendlyWrt initiaux : utilisateur `root`, mot de passe `password`. Ils donnent l’administration complète via LuCI et SSH depuis le client de maintenance. Modifiez immédiatement cette valeur publique pour une installation permanente. `AUTHORIZED_KEYS` peut ajouter une clé SSH de secours.
 

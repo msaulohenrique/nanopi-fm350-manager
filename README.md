@@ -12,9 +12,9 @@ Ready-to-flash, reproducible FriendlyWrt images for the NanoPi NEO3 Plus and Fib
 - FM350-GL USB modes `0e8d:7126` and `0e8d:7127`, with automatic AT-port discovery.
 - `xmm-modem` and `luci-proto-xmm` from [modemfeed](https://github.com/koshev-msk/modemfeed).
 - IPv4 cellular connection through `surf.br`, metric 10 (preferred route).
-- The only RJ45 as DHCP WAN, metric 20 (fallback route).
-- The same RJ45 as a DHCP-free maintenance interface at `192.168.77.1/24`.
-- LuCI, SSH, DNS and cellular forwarding restricted to the maintenance client `192.168.77.2`.
+- The FM350 cellular interface as the Internet WAN, with IPv4 masquerading.
+- The only RJ45 as a DHCP LAN for the downstream router, gateway `192.168.77.1/24`.
+- LuCI, SSH, DNS and cellular forwarding available through the same RJ45.
 - Multilingual **Network → FM350 Manager** panel for live status, complete APN/SIM configuration, SMS, radio analytics and connection controls.
 - System heartbeat on `sys_led`; FM350 link and RX/TX activity on `user_led`.
 - Full root access through LuCI and SSH on the maintenance interface.
@@ -28,16 +28,16 @@ Ready-to-flash, reproducible FriendlyWrt images for the NanoPi NEO3 Plus and Fib
 
 The SIM must be active and must not require a PIN. If it does, set the PIN in LuCI before bringing up the cellular interface.
 
-## One RJ45, two purposes
+## Connect the downstream router
 
-| Purpose | Client configuration | NanoPi address | Behavior |
+| Connection | Client configuration | NanoPi address | Behavior |
 | --- | --- | --- | --- |
-| Normal WAN | DHCP | Assigned by the upstream router | Internet fallback, metric 20 |
-| Direct maintenance | Static `192.168.77.2/24`; gateway/DNS `192.168.77.1` | `192.168.77.1` | LuCI and routed cellular access; no DHCP server |
+| Router WAN port | DHCP/automatic | `192.168.77.1` | Receives an address from `192.168.77.100–149`, DNS and cellular Internet |
+| Direct maintenance computer | DHCP/automatic, or static `192.168.77.2/24` | `192.168.77.1` | LuCI, SSH and cellular Internet through the same cable |
 
-For maintenance, open `https://192.168.77.1/`. The certificate is locally generated, so the browser may show a warning on first access.
+Connect the NanoPi RJ45 to the downstream router's **WAN/Internet** port and leave that port in DHCP/automatic mode. For maintenance, open `https://192.168.77.1/` from the downstream LAN or connect a computer directly. The certificate is locally generated, so the browser may show a warning on first access. The downstream router's LAN must use a different subnet, such as `192.168.1.0/24`.
 
-Unless the repository owner configures `ROOT_PASSWORD_HASH`, the image keeps FriendlyWrt's initial credentials: user `root`, password `password`. They provide full administrative access in both LuCI and SSH from the maintenance client. Change this public default immediately on any permanent deployment. `AUTHORIZED_KEYS` optionally adds key-based SSH recovery.
+Unless the repository owner configures `ROOT_PASSWORD_HASH`, the image keeps FriendlyWrt's initial credentials: user `root`, password `password`. They provide full administrative access in both LuCI and SSH through the RJ45 LAN. Change this public default immediately on any permanent deployment. `AUTHORIZED_KEYS` optionally adds key-based SSH recovery.
 
 ## LuCI modem panel and LEDs
 
@@ -51,6 +51,8 @@ The interface uses progressive disclosure: common actions, APN, signal quality, 
 | --- | --- | --- |
 | `sys_led` | `heartbeat` | The operating system is alive. |
 | `user_led` | `netdev` on `eth1`, modes `link tx rx` | Cellular link is active; flashes on modem traffic. |
+
+The physical GPIO user button (`BTN_1`) performs a safe reboot when released. The separate **MASK** button keeps its original boot/recovery purpose and must not be used for routine rebooting.
 
 ## Automatic releases
 

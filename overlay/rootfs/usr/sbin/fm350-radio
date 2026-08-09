@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# shellcheck disable=SC1091
 . /usr/share/libubox/jshn.sh
 
 fail() {
@@ -56,7 +57,9 @@ lock_dir=/tmp/fm350-at.lock
 mkdir "$lock_dir" 2>/dev/null || fail 'The modem is busy; try again shortly'
 temp_file=
 cleanup() {
-	[ -n "$temp_file" ] && rm -f "$temp_file"
+	if [ -n "$temp_file" ]; then
+		rm -f "$temp_file"
+	fi
 	rmdir "$lock_dir" 2>/dev/null
 }
 trap cleanup 0 1 2 15

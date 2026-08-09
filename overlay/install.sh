@@ -34,6 +34,7 @@ fi
 chmod 0755 "$ROOTFS_DIR/etc/init.d/fm350-autoconfig"
 chmod 0755 "$ROOTFS_DIR/etc/uci-defaults/99-nanopi-neo3-plus-fm350"
 chmod 0755 "$ROOTFS_DIR/etc/hotplug.d/usb/95-fm350-autoconfig"
+chmod 0755 "$ROOTFS_DIR/etc/rc.button/BTN_1"
 chmod 0755 "$ROOTFS_DIR/usr/sbin/fm350-autoconfig"
 chmod 0755 "$ROOTFS_DIR/usr/sbin/fm350-find-port"
 chmod 0755 "$ROOTFS_DIR/usr/sbin/fm350-control"

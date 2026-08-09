@@ -9,9 +9,9 @@ Imagens reproduzíveis e prontas para gravar do FriendlyWrt para o NanoPi NEO3 P
 - Modos USB `0e8d:7126` e `0e8d:7127` do FM350-GL, com detecção automática da porta AT.
 - Pacotes `xmm-modem` e `luci-proto-xmm` do [modemfeed](https://github.com/koshev-msk/modemfeed).
 - Conexão celular IPv4 pela APN `surf.br`, métrica 10 e prioridade principal.
-- A única RJ45 como WAN DHCP, métrica 20 e rota de contingência.
-- A mesma RJ45 como manutenção sem DHCP, no endereço `192.168.77.1/24`.
-- LuCI, SSH, DNS e saída celular liberados somente para o cliente de manutenção `192.168.77.2`.
+- A interface celular FM350 como WAN de internet, com mascaramento IPv4.
+- A única RJ45 como LAN DHCP para o roteador conectado, gateway `192.168.77.1/24`.
+- LuCI, SSH, DNS e saída celular disponíveis pela mesma RJ45.
 - Painel multilíngue **Rede → FM350 Manager** com status, APN/SIM completo, SMS, análises de rádio e controles da conexão.
 - `sys_led` como heartbeat; `user_led` indicando link e tráfego RX/TX do FM350.
 - Acesso administrativo completo de root pelo LuCI e SSH na interface de manutenção.
@@ -25,16 +25,16 @@ Imagens reproduzíveis e prontas para gravar do FriendlyWrt para o NanoPi NEO3 P
 
 O SIM deve estar ativo e sem solicitação de PIN. Se houver PIN, configure-o no LuCI antes de ativar a interface celular.
 
-## Uma RJ45, duas funções
+## Conectar o roteador
 
-| Uso | Configuração do computador/roteador | Endereço do NanoPi | Comportamento |
+| Conexão | Configuração do computador/roteador | Endereço do NanoPi | Comportamento |
 | --- | --- | --- | --- |
-| WAN normal | DHCP | Recebido do roteador principal | Contingência de internet, métrica 20 |
-| Manutenção direta | IP fixo `192.168.77.2/24`; gateway/DNS `192.168.77.1` | `192.168.77.1` | LuCI e internet celular; sem servidor DHCP |
+| Porta WAN do roteador | DHCP/automático | `192.168.77.1` | Recebe endereço `192.168.77.100–149`, DNS e internet celular |
+| Computador direto para manutenção | DHCP/automático, ou fixo `192.168.77.2/24` | `192.168.77.1` | LuCI, SSH e internet celular pelo mesmo cabo |
 
-Na manutenção, abra `https://192.168.77.1/`. O certificado é gerado localmente, então o navegador pode avisar na primeira abertura.
+Conecte a RJ45 do NanoPi à porta **WAN/Internet** do roteador e deixe essa porta em DHCP/automático. Para manutenção, abra `https://192.168.77.1/` pela rede interna do roteador ou conecte um computador diretamente. O certificado é gerado localmente, então o navegador pode avisar na primeira abertura. A LAN do roteador deve usar outra sub-rede, por exemplo `192.168.1.0/24`.
 
-Sem o segredo `ROOT_PASSWORD_HASH`, a imagem mantém a credencial inicial do FriendlyWrt: usuário `root`, senha `password`. Ela permite administração completa pelo LuCI e SSH a partir do cliente de manutenção. Troque essa senha pública imediatamente em instalações permanentes. `AUTHORIZED_KEYS` adiciona opcionalmente uma chave SSH de recuperação.
+Sem o segredo `ROOT_PASSWORD_HASH`, a imagem mantém a credencial inicial do FriendlyWrt: usuário `root`, senha `password`. Ela permite administração completa pelo LuCI e SSH pela LAN RJ45. Troque essa senha pública imediatamente em instalações permanentes. `AUTHORIZED_KEYS` adiciona opcionalmente uma chave SSH de recuperação.
 
 ## Painel do modem e LEDs
 
@@ -48,6 +48,8 @@ A interface é progressiva: ações comuns, APN, qualidade do sinal, gráficos e
 | --- | --- | --- |
 | `sys_led` | `heartbeat` | O sistema operacional está ativo. |
 | `user_led` | `netdev` em `eth1`, modos `link tx rx` | Link celular ativo e piscadas durante tráfego do modem. |
+
+O botão físico GPIO de usuário (`BTN_1`) executa uma reinicialização segura ao ser solto. O botão **MASK**, separado, mantém sua função original de boot/recuperação e não deve ser usado para reinicializações rotineiras.
 
 ## Releases automáticas
 

@@ -19,6 +19,7 @@ required=(
 	overlay/rootfs/etc/gcom/fm350-sms-send.gcom
 	overlay/rootfs/etc/gcom/xmm-config.gcom
 	overlay/rootfs/etc/gcom/xmm-connect.gcom
+	overlay/rootfs/etc/rc.button/BTN_1
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
 	overlay/rootfs/usr/sbin/fm350-control
 	overlay/rootfs/usr/sbin/fm350-radio
@@ -60,7 +61,9 @@ grep -q "set network.maintenance.ipaddr='192.168.77.1'" \
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
 grep -q "set network.maintenance.device='eth0'" \
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
-grep -q "set network.wan.device='eth0'" \
+grep -q "set dhcp.maintenance.ignore='0'" \
+	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
+grep -q 'uci add_list "$wan_zone.network=cellular"' \
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
 grep -q "set dropbear.main.PasswordAuth='on'" \
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
@@ -87,6 +90,7 @@ bash -n overlay/rootfs/usr/sbin/fm350-control
 bash -n overlay/rootfs/usr/sbin/fm350-radio
 bash -n overlay/rootfs/usr/sbin/fm350-sms
 bash -n overlay/rootfs/usr/sbin/fm350-status
+bash -n overlay/rootfs/etc/rc.button/BTN_1
 node -e 'new Function(require("fs").readFileSync(process.argv[1], "utf8"))' \
 	overlay/rootfs/www/luci-static/resources/view/fm350/status.js
 "$REPO_ROOT/tests/test-fm350-find-port.sh"

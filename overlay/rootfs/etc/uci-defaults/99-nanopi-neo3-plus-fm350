@@ -1,12 +1,10 @@
 #!/bin/sh
 
-# The only RJ45 is a DHCP WAN and also a static, DHCP-free maintenance alias.
+# The FM350 is the WAN. The only RJ45 serves the downstream router and also
+# provides a stable maintenance address.
 uci -q batch <<'EOF'
-set network.wan=interface
-set network.wan.proto='dhcp'
-set network.wan.device='eth0'
-set network.wan.metric='20'
-
+delete network.wan
+delete network.wan6
 delete network.lan
 set network.maintenance=interface
 set network.maintenance.proto='static'
@@ -29,9 +27,17 @@ set network.cellular.peerdns='1'
 set network.cellular.metric='10'
 
 delete dhcp.lan
+delete dhcp.wan
 set dhcp.maintenance=dhcp
 set dhcp.maintenance.interface='maintenance'
-set dhcp.maintenance.ignore='1'
+set dhcp.maintenance.ignore='0'
+set dhcp.maintenance.start='100'
+set dhcp.maintenance.limit='50'
+set dhcp.maintenance.leasetime='12h'
+set dhcp.maintenance.dhcpv4='server'
+set dhcp.maintenance.dhcpv6='disabled'
+set dhcp.maintenance.ra='disabled'
+set dhcp.maintenance.ndp='disabled'
 
 set dropbear.main.PasswordAuth='on'
 set dropbear.main.RootPasswordAuth='on'
@@ -58,44 +64,30 @@ add_list uhttpd.main.listen_https='192.168.77.1:443'
 set uhttpd.main.redirect_https='1'
 EOF
 
+lan_zone=$(uci show firewall | sed -n "s/^\(firewall\.[^.]*\)\.name='lan'$/\1/p" | head -n1)
+if [ -n "$lan_zone" ]; then
+	uci -q del_list "$lan_zone.network=lan"
+	uci -q del_list "$lan_zone.network=maintenance"
+	uci add_list "$lan_zone.network=maintenance"
+fi
+
 wan_zone=$(uci show firewall | sed -n "s/^\(firewall\.[^.]*\)\.name='wan'$/\1/p" | head -n1)
 if [ -n "$wan_zone" ]; then
+	uci -q del_list "$wan_zone.network=wan"
+	uci -q del_list "$wan_zone.network=wan6"
 	uci -q del_list "$wan_zone.network=maintenance"
-	uci add_list "$wan_zone.network=maintenance"
 	uci -q del_list "$wan_zone.network=cellular"
 	uci add_list "$wan_zone.network=cellular"
 fi
 
-# Replace a broad WAN ping rule with source-restricted maintenance rules.
-for rule in $(uci show firewall | sed -n "s/^\(firewall\.[^.]*\)\.name='Allow-Ping'$/\1/p"); do
-	uci set "$rule.enabled=0"
+# Remove rules from images that previously treated maintenance as WAN. The LAN
+# zone accepts device management and its existing lan-to-wan forwarding sends
+# clients through the masqueraded cellular zone.
+for name in Maintenance-SSH-LuCI Maintenance-DNS Maintenance-Ping Maintenance-to-Cellular; do
+	for rule in $(uci show firewall | sed -n "s/^\(firewall\.[^.]*\)\.name='$name'$/\1/p"); do
+		uci delete "$rule"
+	done
 done
-
-add_rule() {
-	section=$(uci add firewall rule)
-	uci set "firewall.$section.name=$1"
-	uci set "firewall.$section.src=wan"
-	uci set "firewall.$section.src_ip=192.168.77.2/32"
-	uci set "firewall.$section.target=ACCEPT"
-}
-
-add_rule 'Maintenance-SSH-LuCI'
-uci set "firewall.$section.proto=tcp"
-uci set "firewall.$section.dest_port=22 80 443"
-
-add_rule 'Maintenance-DNS'
-uci set "firewall.$section.proto=tcp udp"
-uci set "firewall.$section.dest_port=53"
-
-add_rule 'Maintenance-Ping'
-uci set "firewall.$section.proto=icmp"
-uci set "firewall.$section.icmp_type=echo-request"
-uci set "firewall.$section.family=ipv4"
-
-add_rule 'Maintenance-to-Cellular'
-uci set "firewall.$section.dest=wan"
-uci set "firewall.$section.proto=all"
-uci set "firewall.$section.family=ipv4"
 
 uci commit network
 uci commit dhcp
@@ -106,5 +98,5 @@ uci commit uhttpd
 
 /etc/init.d/fm350-autoconfig enable
 /etc/init.d/led restart 2>/dev/null || true
-logger -t firstboot 'NanoPi NEO3 Plus: FM350 surf.br and maintenance RJ45 configured'
+logger -t firstboot 'NanoPi NEO3 Plus: FM350 WAN and routed RJ45 LAN configured'
 exit 0
