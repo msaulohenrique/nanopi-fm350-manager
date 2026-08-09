@@ -10,7 +10,7 @@ set network.wan.metric='20'
 delete network.lan
 set network.maintenance=interface
 set network.maintenance.proto='static'
-set network.maintenance.device='@wan'
+set network.maintenance.device='eth0'
 set network.maintenance.ipaddr='192.168.77.1'
 set network.maintenance.netmask='255.255.255.0'
 set network.maintenance.defaultroute='0'
@@ -20,7 +20,7 @@ set network.maintenance.delegate='0'
 set network.cellular=interface
 set network.cellular.proto='xmm'
 set network.cellular.apn='surf.br'
-set network.cellular.pdp='ip'
+set network.cellular.pdp='IP'
 set network.cellular.profile='1'
 set network.cellular.delay='10'
 set network.cellular.maxfail='20'
@@ -33,13 +33,23 @@ set dhcp.maintenance=dhcp
 set dhcp.maintenance.interface='maintenance'
 set dhcp.maintenance.ignore='1'
 
-set dropbear.main.PasswordAuth='off'
-set dropbear.main.RootPasswordAuth='off'
+set dropbear.main.PasswordAuth='on'
+set dropbear.main.RootPasswordAuth='on'
 set dropbear.main.Interface='maintenance'
 
 set system.@system[0].hostname='nanopi-neo3-plus'
 set system.@system[0].zonename='America/Sao_Paulo'
 set system.@system[0].timezone='<-03>3'
+set system.sys_led=led
+set system.sys_led.name='System heartbeat'
+set system.sys_led.sysfs='sys_led'
+set system.sys_led.trigger='heartbeat'
+set system.cellular_led=led
+set system.cellular_led.name='FM350 cellular activity'
+set system.cellular_led.sysfs='user_led'
+set system.cellular_led.trigger='netdev'
+set system.cellular_led.dev='eth1'
+set system.cellular_led.mode='link tx rx'
 
 delete uhttpd.main.listen_http
 add_list uhttpd.main.listen_http='192.168.77.1:80'
@@ -95,5 +105,6 @@ uci commit system
 uci commit uhttpd
 
 /etc/init.d/fm350-autoconfig enable
+/etc/init.d/led restart 2>/dev/null || true
 logger -t firstboot 'NanoPi NEO3 Plus: FM350 surf.br and maintenance RJ45 configured'
 exit 0

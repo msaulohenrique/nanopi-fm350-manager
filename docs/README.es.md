@@ -12,7 +12,9 @@ Imágenes FriendlyWrt reproducibles y listas para grabar para NanoPi NEO3 Plus c
 - El único RJ45 como WAN DHCP, métrica 20 y ruta de respaldo.
 - El mismo RJ45 para mantenimiento sin DHCP en `192.168.77.1/24`.
 - LuCI, SSH, DNS y salida celular limitados al cliente de mantenimiento `192.168.77.2`.
-- Autenticación SSH por contraseña desactivada.
+- Panel multilingüe **Red → FM350 Manager** con estado, APN/SIM completo, SMS, analítica de radio y controles.
+- `sys_led` como latido del sistema; `user_led` para enlace y tráfico RX/TX del FM350.
+- Acceso administrativo completo de root mediante LuCI y SSH en la interfaz de mantenimiento.
 
 ## Descargar y grabar
 
@@ -32,7 +34,18 @@ La SIM debe estar activa y sin solicitud de PIN. Si usa PIN, configúrelo en LuC
 
 Abra `https://192.168.77.1/`. El certificado local puede producir una advertencia inicial del navegador.
 
-Sin el secreto `ROOT_PASSWORD_HASH`, la imagen conserva las credenciales iniciales de LuCI de FriendlyWrt (`root` / `password`). Cambie la contraseña inmediatamente. SSH funciona únicamente si la release se construyó con `AUTHORIZED_KEYS`.
+Sin `ROOT_PASSWORD_HASH`, la imagen conserva las credenciales iniciales de FriendlyWrt: usuario `root`, contraseña `password`. Permiten administración completa mediante LuCI y SSH desde el cliente de mantenimiento. Cambie este valor público inmediatamente en instalaciones permanentes. `AUTHORIZED_KEYS` añade opcionalmente una clave SSH de recuperación.
+
+## Panel del módem y LED
+
+Después de iniciar sesión, abra **Red → FM350 Manager**. El panel muestra SIM, operador, tecnología, RAT, señal, red e IP. La analítica incluye gráficos de señal/tráfico, bandas/canales/PCI/ancho de banda en uso y todas las bandas 3G/4G/5G admitidas. El formulario gestiona APN, PDP, CID, PIN SIM y credenciales PAP/CHAP sin devolver secretos guardados al navegador. SMS permite leer memorias ME/SM, decodificar UCS-2, enviar textos estándar de hasta 160 bytes y eliminarlos.
+
+La interfaz mantiene visibles las acciones comunes, APN, señal, gráficos y SMS; las bandas, CID y credenciales se despliegan como opciones avanzadas. Los controles se habilitan dinámicamente según el estado.
+
+| LED | Configuración | Significado |
+| --- | --- | --- |
+| `sys_led` | `heartbeat` | El sistema está activo. |
+| `user_led` | `netdev` en `eth1`, modos `link tx rx` | Enlace celular y parpadeo durante tráfico del módem. |
 
 GitHub Actions busca cambios cada día y al modificar la receta en `main`. Sigue el manifiesto `master-v*` más reciente y registra todos los commits exactos. Cada release contiene `.img.gz`, `SHA256SUMS` y `source-lock.json`. Consulte [BUILD.md](BUILD.md).
 

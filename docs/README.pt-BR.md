@@ -12,7 +12,9 @@ Imagens reproduzíveis e prontas para gravar do FriendlyWrt para o NanoPi NEO3 P
 - A única RJ45 como WAN DHCP, métrica 20 e rota de contingência.
 - A mesma RJ45 como manutenção sem DHCP, no endereço `192.168.77.1/24`.
 - LuCI, SSH, DNS e saída celular liberados somente para o cliente de manutenção `192.168.77.2`.
-- Autenticação SSH por senha desativada.
+- Painel multilíngue **Rede → FM350 Manager** com status, APN/SIM completo, SMS, análises de rádio e controles da conexão.
+- `sys_led` como heartbeat; `user_led` indicando link e tráfego RX/TX do FM350.
+- Acesso administrativo completo de root pelo LuCI e SSH na interface de manutenção.
 
 ## Baixar e gravar
 
@@ -32,7 +34,20 @@ O SIM deve estar ativo e sem solicitação de PIN. Se houver PIN, configure-o no
 
 Na manutenção, abra `https://192.168.77.1/`. O certificado é gerado localmente, então o navegador pode avisar na primeira abertura.
 
-Se o dono do repositório não configurar o segredo `ROOT_PASSWORD_HASH`, a imagem mantém a credencial inicial do FriendlyWrt para o LuCI (`root` / `password`). Troque a senha imediatamente. O SSH só funciona quando a release foi compilada com o segredo `AUTHORIZED_KEYS`.
+Sem o segredo `ROOT_PASSWORD_HASH`, a imagem mantém a credencial inicial do FriendlyWrt: usuário `root`, senha `password`. Ela permite administração completa pelo LuCI e SSH a partir do cliente de manutenção. Troque essa senha pública imediatamente em instalações permanentes. `AUTHORIZED_KEYS` adiciona opcionalmente uma chave SSH de recuperação.
+
+## Painel do modem e LEDs
+
+Depois de entrar, abra **Rede → FM350 Manager**. O painel mostra SIM, operadora, tecnologia, RAT, registro, sinal, interfaces AT/dados, IP, gateway, DNS e tempo conectado. A área analítica traz gráficos de sinal e tráfego, bandas/canais/PCI/largura em uso, bandas habilitadas e todas as bandas 3G/4G/5G suportadas. Como o driver T700 mantém o RX de `eth1` zerado, o gráfico de download usa automaticamente os bytes celulares encaminhados pela RJ45.
+
+O formulário celular completo gerencia APN, tipo PDP, CID/perfil, PIN do SIM, PAP/CHAP, usuário e senha. PIN e senha salvos nunca voltam ao navegador: campos secretos vazios preservam os valores e uma caixa separada remove explicitamente o PIN. A área SMS lista a memória do modem ou do SIM, decodifica mensagens UCS-2, envia textos padrão de até 160 bytes e apaga a mensagem selecionada.
+
+A interface é progressiva: ações comuns, APN, qualidade do sinal, gráficos e SMS ficam visíveis; matriz de bandas, CID e credenciais ficam recolhidos nas áreas avançadas. Botões e campos são habilitados dinamicamente apenas quando fazem sentido no estado atual.
+
+| LED | Configuração | Significado |
+| --- | --- | --- |
+| `sys_led` | `heartbeat` | O sistema operacional está ativo. |
+| `user_led` | `netdev` em `eth1`, modos `link tx rx` | Link celular ativo e piscadas durante tráfego do modem. |
 
 ## Releases automáticas
 

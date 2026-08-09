@@ -12,7 +12,9 @@ Images FriendlyWrt reproductibles et prêtes à flasher pour le NanoPi NEO3 Plus
 - L’unique RJ45 comme WAN DHCP, métrique 20 et route de secours.
 - Le même RJ45 pour la maintenance sans DHCP sur `192.168.77.1/24`.
 - LuCI, SSH, DNS et transfert cellulaire limités au client de maintenance `192.168.77.2`.
-- Authentification SSH par mot de passe désactivée.
+- Tableau multilingue **Réseau → FM350 Manager** avec état, configuration APN/SIM, SMS, analyse radio et commandes.
+- `sys_led` en battement système ; `user_led` pour le lien et le trafic RX/TX du FM350.
+- Accès administrateur root complet via LuCI et SSH sur l’interface de maintenance.
 
 ## Télécharger et flasher
 
@@ -32,7 +34,18 @@ La carte SIM doit être active et ne pas demander de code PIN. Sinon, configurez
 
 Ouvrez `https://192.168.77.1/`. Le certificat local peut provoquer un avertissement initial du navigateur.
 
-Sans le secret `ROOT_PASSWORD_HASH`, l’image conserve les identifiants LuCI initiaux de FriendlyWrt (`root` / `password`). Changez immédiatement le mot de passe. SSH n’est disponible que si la release a été construite avec `AUTHORIZED_KEYS`.
+Sans `ROOT_PASSWORD_HASH`, l’image conserve les identifiants FriendlyWrt initiaux : utilisateur `root`, mot de passe `password`. Ils donnent l’administration complète via LuCI et SSH depuis le client de maintenance. Modifiez immédiatement cette valeur publique pour une installation permanente. `AUTHORIZED_KEYS` peut ajouter une clé SSH de secours.
+
+## Tableau du modem et LED
+
+Après connexion, ouvrez **Réseau → FM350 Manager**. Le tableau affiche la SIM, l'opérateur, la technologie, le RAT, le signal, le réseau et l'IP. Les analyses fournissent des graphiques de signal/trafic, les bandes/canaux/PCI/largeurs utilisés et toutes les bandes 3G/4G/5G prises en charge. Le formulaire gère APN, PDP, CID, PIN SIM et identifiants PAP/CHAP sans renvoyer les secrets enregistrés au navigateur. La zone SMS lit les mémoires ME/SM, décode UCS-2, envoie des textes standard de 160 octets maximum et les supprime.
+
+L'interface garde visibles les actions courantes, l'APN, le signal, les graphiques et les SMS ; les bandes, le CID et les identifiants sont regroupés dans des volets avancés. Les commandes s'activent dynamiquement selon l'état.
+
+| LED | Configuration | Signification |
+| --- | --- | --- |
+| `sys_led` | `heartbeat` | Le système fonctionne. |
+| `user_led` | `netdev` sur `eth1`, modes `link tx rx` | Lien cellulaire et clignotement lors du trafic modem. |
 
 GitHub Actions vérifie les mises à jour chaque jour et lors des changements de recette sur `main`. Chaque release fournit `.img.gz`, `SHA256SUMS` et `source-lock.json`. Consultez [BUILD.md](BUILD.md).
 

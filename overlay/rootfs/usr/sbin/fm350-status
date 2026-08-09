@@ -1,0 +1,108 @@
+#!/bin/sh
+
+. /usr/share/libubox/jshn.sh
+
+status_json=$(ifstatus cellular 2>/dev/null || printf '{}')
+up=$(printf '%s' "$status_json" | jsonfilter -e '@.up' 2>/dev/null)
+pending=$(printf '%s' "$status_json" | jsonfilter -e '@.pending' 2>/dev/null)
+device=$(uci -q get network.cellular.device)
+apn=$(uci -q get network.cellular.apn)
+pdp=$(uci -q get network.cellular.pdp | tr '[:lower:]' '[:upper:]')
+profile=$(uci -q get network.cellular.profile)
+auth=$(uci -q get network.cellular.auth)
+pincode=$(uci -q get network.cellular.pincode)
+username=$(uci -q get network.cellular.username)
+password=$(uci -q get network.cellular.password)
+ipaddr=$(printf '%s' "$status_json" | jsonfilter -e '@["ipv4-address"][0].address' 2>/dev/null)
+gateway=$(printf '%s' "$status_json" | jsonfilter -e '@.route[0].nexthop' 2>/dev/null)
+dns=$(printf '%s' "$status_json" | jsonfilter -e '@["dns-server"][*]' 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+uptime=$(printf '%s' "$status_json" | jsonfilter -e '@.uptime' 2>/dev/null)
+l3_device=$(printf '%s' "$status_json" | jsonfilter -e '@.l3_device' 2>/dev/null)
+rx_bytes=$(cat "/sys/class/net/${l3_device:-eth1}/statistics/rx_bytes" 2>/dev/null)
+tx_bytes=$(cat "/sys/class/net/${l3_device:-eth1}/statistics/tx_bytes" 2>/dev/null)
+traffic_source=${l3_device:-eth1}
+# The FM350 T700 Ethernet driver reports TX but may keep RX at zero. In that
+# case, use bytes delivered through the maintenance RJ45 as the download graph.
+if [ "${rx_bytes:-0}" -eq 0 ] 2>/dev/null; then
+	rx_bytes=$(cat /sys/class/net/eth0/statistics/tx_bytes 2>/dev/null)
+	traffic_source='eth1 TX + eth0 forwarded RX'
+fi
+
+case "$up:$pending" in
+	true:*) state=connected ;;
+	*:true) state=connecting ;;
+	*) state=disconnected ;;
+esac
+[ "$up" = true ] && up_boolean=1 || up_boolean=0
+[ -n "$pincode" ] && pin_configured=1 || pin_configured=0
+[ -n "$username" ] && [ -n "$password" ] && credentials_configured=1 || credentials_configured=0
+
+at_output=
+if [ -c "$device" ] && ! ps w | grep -q "[g]com -d $device"; then
+	at_output=$(timeout 12 gcom -d "$device" -s /etc/gcom/fm350-status.gcom 2>/dev/null || true)
+fi
+
+sim=$(printf '%s\n' "$at_output" | sed -n 's/.*+CPIN: *\([^[:space:]\r]*\).*/\1/p' | head -n1)
+operator=$(printf '%s\n' "$at_output" | sed -n 's/.*+COPS:[^\"]*\"\([^\"]*\)\".*/\1/p' | head -n1)
+rat=$(printf '%s\n' "$at_output" | sed -n 's/.*+COPS:.*,[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n1)
+registration=$(printf '%s\n' "$at_output" | sed -n 's/.*+CEREG: *[0-9]*,\([0-9]*\).*/\1/p' | head -n1)
+csq=$(printf '%s\n' "$at_output" | sed -n 's/.*+CSQ: *\([0-9]*\),.*/\1/p' | head -n1)
+cesq_rsrp=$(printf '%s\n' "$at_output" | sed -n 's/.*+CESQ: *[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,\([0-9]*\).*/\1/p' | head -n1)
+
+case "$rat" in
+	2) technology='3G UMTS' ;; 4) technology='3G HSDPA' ;; 5) technology='3G HSUPA' ;;
+	6) technology='3G HSPA+' ;; 7) technology='4G LTE' ;; 10) technology='4G LTE (5G core)' ;;
+	11) technology='5G NR SA' ;; 12) technology='5G NR (EPS core)' ;;
+	13) technology='5G NR (NG-RAN)' ;; 14) technology='5G NSA (LTE-NR EN-DC)' ;;
+	*) technology='unknown' ;;
+esac
+
+dbm=
+case "$csq" in
+	''|99) ;;
+	*[!0-9]*) ;;
+	*) [ "$csq" -le 31 ] && dbm=$((-113 + (2 * csq))) ;;
+esac
+case "$cesq_rsrp" in
+	''|255|*[!0-9]*) ;;
+	*) [ -n "$dbm" ] || { [ "$cesq_rsrp" -le 97 ] && dbm=$((-140 + cesq_rsrp)); } ;;
+esac
+
+case "$registration" in
+	1) registration_text=home ;;
+	5) registration_text=roaming ;;
+	2) registration_text=searching ;;
+	3) registration_text=denied ;;
+	*) registration_text=unknown ;;
+esac
+
+model=$(lsusb 2>/dev/null | sed -n '/0e8d:712[67]/s/.*MediaTek Inc\. //p' | head -n1)
+[ -n "$model" ] || model='Fibocom FM350-GL'
+
+json_init
+json_add_string state "$state"
+json_add_boolean up "$up_boolean"
+json_add_string model "$model"
+json_add_string device "${device:-not-detected}"
+json_add_string interface "${l3_device:-eth1}"
+json_add_string apn "${apn:-surf.br}"
+json_add_string pdp "${pdp:-IP}"
+json_add_string profile "${profile:-1}"
+json_add_string auth "${auth:-none}"
+json_add_boolean pin_configured "$pin_configured"
+json_add_boolean credentials_configured "$credentials_configured"
+json_add_string sim "${sim:-unknown}"
+json_add_string operator "${operator:-unknown}"
+json_add_string rat "${rat:-unknown}"
+json_add_string technology "$technology"
+json_add_string registration "${registration_text:-unknown}"
+json_add_string csq "${csq:-unknown}"
+json_add_string dbm "${dbm:-unknown}"
+json_add_string ip "${ipaddr:--}"
+json_add_string gateway "${gateway:--}"
+json_add_string dns "${dns:--}"
+json_add_string uptime "${uptime:-0}"
+json_add_string rx_bytes "${rx_bytes:-0}"
+json_add_string tx_bytes "${tx_bytes:-0}"
+json_add_string traffic_source "$traffic_source"
+json_dump

@@ -58,7 +58,7 @@ FRIENDLYWRT_VERSION_OVERRIDE=25.12 \
 
 ## Optional credentials
 
-Generic public releases deliberately do not contain a personal SSH key. The upstream FriendlyWrt LuCI password remains in place unless a crypt(3) hash is supplied. For repository-owned releases, create Actions secrets:
+Generic public releases deliberately do not contain a personal SSH key. The upstream FriendlyWrt `root` / `password` credential remains in place unless a crypt(3) hash is supplied and is enabled for LuCI and SSH only through the maintenance interface. For repository-owned releases, create Actions secrets:
 
 - `AUTHORIZED_KEYS`: one or more complete OpenSSH public-key lines;
 - `ROOT_PASSWORD_HASH`: a SHA-256 (`$5$`), SHA-512 (`$6$`) or yescrypt (`$y$`) crypt hash.

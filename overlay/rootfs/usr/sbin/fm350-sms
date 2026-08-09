@@ -1,0 +1,109 @@
+#!/bin/sh
+
+. /usr/share/libubox/jshn.sh
+
+reply() {
+	json_init
+	json_add_boolean ok "$1"
+	json_add_string message "$2"
+	json_dump
+}
+
+fail() {
+	reply 0 "$1"
+	exit "${2:-1}"
+}
+
+validate_storage() {
+	case "$1" in
+		ME|SM) return 0 ;;
+		*) fail 'Storage must be ME or SM' 2 ;;
+	esac
+}
+
+device=$(uci -q get network.cellular.device)
+[ -c "$device" ] || fail 'FM350 AT port is not available'
+
+lock_dir=/tmp/fm350-at.lock
+mkdir "$lock_dir" 2>/dev/null || fail 'The modem is busy; try again shortly'
+temp_file=
+cleanup() {
+	[ -n "$temp_file" ] && rm -f "$temp_file"
+	rmdir "$lock_dir" 2>/dev/null
+}
+trap cleanup 0 1 2 15
+
+action=${1:-list}
+case "$action" in
+	list)
+		storage=${2:-ME}
+		validate_storage "$storage"
+		output=$(SMS_STORAGE="$storage" timeout 35 gcom -d "$device" -s /etc/gcom/fm350-sms-list.gcom 2>/dev/null) ||
+			fail 'Unable to list SMS messages'
+		json_init
+		json_add_boolean ok 1
+		json_add_string storage "$storage"
+		json_add_array messages
+		temp_file=$(mktemp /tmp/fm350-sms-list.XXXXXX) || fail 'Unable to create SMS workspace'
+		printf '%s\n' "$output" | awk '
+			function emit() {
+				if (header != "") printf "%s\034%s\n", header, body
+			}
+			{ sub(/\r$/, "") }
+			/^\+CMGL: [0-9]+,/ {
+				emit()
+				header=$0
+				body=""
+				next
+			}
+			header != "" && $0 != "" && $0 !~ /^(OK|ERROR|\+STKPCI:)/ {
+				if (body != "") body=body "\\n"
+				body=body $0
+			}
+			END { emit() }
+		' >"$temp_file"
+		while IFS=$(printf '\034') read -r header body; do
+			index=$(printf '%s\n' "$header" | sed -n 's/^+CMGL: \([0-9][0-9]*\),.*/\1/p')
+			status=$(printf '%s\n' "$header" | sed -n 's/^+CMGL: [0-9][0-9]*,"\([^"]*\)".*/\1/p')
+			number=$(printf '%s\n' "$header" | sed -n 's/^+CMGL: [0-9][0-9]*,"[^"]*","\([^"]*\)".*/\1/p')
+			timestamp=$(printf '%s\n' "$header" | sed -n 's/^+CMGL: [0-9][0-9]*,"[^"]*","[^"]*","[^"]*","\([^"]*\)".*/\1/p')
+			[ -n "$index" ] || continue
+			json_add_object
+			json_add_string index "$index"
+			json_add_string storage "$storage"
+			json_add_string status "${status:-unknown}"
+			json_add_string number "${number:-unknown}"
+			json_add_string timestamp "${timestamp:-unknown}"
+			json_add_string text "$body"
+			json_close_object
+		done <"$temp_file"
+		rm -f "$temp_file"
+		temp_file=
+		json_close_array
+		json_dump
+		;;
+	send)
+		number=${2:-}
+		text=${3:-}
+		digits=${number#+}
+		case "$digits" in ''|*[!0-9]*) fail 'Invalid destination number' 2 ;; esac
+		[ "${#digits}" -ge 8 ] && [ "${#digits}" -le 15 ] || fail 'Destination must have 8 to 15 digits' 2
+		[ -n "$text" ] || fail 'SMS text is empty' 2
+		[ "${#text}" -le 160 ] || fail 'SMS text exceeds 160 bytes' 2
+		printf '%s' "$text" | grep -q '[[:cntrl:]]' && fail 'SMS text contains control characters' 2
+		SMS_NUMBER="$number" SMS_TEXT="$text" timeout 100 gcom -d "$device" -s /etc/gcom/fm350-sms-send.gcom >/dev/null 2>&1 ||
+			fail 'The modem did not send the SMS'
+		reply 1 'SMS sent'
+		;;
+	delete)
+		storage=${2:-ME}
+		index=${3:-}
+		validate_storage "$storage"
+		case "$index" in ''|*[!0-9]*) fail 'Invalid SMS index' 2 ;; esac
+		[ "$index" -le 9999 ] || fail 'Invalid SMS index' 2
+		SMS_STORAGE="$storage" SMS_INDEX="$index" timeout 35 gcom -d "$device" -s /etc/gcom/fm350-sms-delete.gcom >/dev/null 2>&1 ||
+			fail 'Unable to delete the SMS'
+		reply 1 'SMS deleted'
+		;;
+	*) fail 'Unsupported SMS action' 2 ;;
+esac
