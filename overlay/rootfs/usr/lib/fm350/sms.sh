@@ -19,7 +19,8 @@ fm350_sms_text_is_basic() {
 	# Some are available through the GSM extension table, but deliberately reject
 	# them until septet-aware length accounting is implemented.
 	case "$text" in
-		*'['*|*']'*|*'\'*|*'^'*|*'`'*|*'{'*|*'|'*|*'}'*|*'~'*) return 1 ;;
+		*'['*|*']'*|*'^'*|*'`'*|*'{'*|*'|'*|*'}'*|*'~'*) return 1 ;;
+		*\\*) return 1 ;;
 	esac
 
 	return 0
