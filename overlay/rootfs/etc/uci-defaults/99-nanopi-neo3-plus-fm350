@@ -39,8 +39,10 @@ set dhcp.maintenance.dhcpv6='disabled'
 set dhcp.maintenance.ra='disabled'
 set dhcp.maintenance.ndp='disabled'
 
-set dropbear.main.PasswordAuth='on'
-set dropbear.main.RootPasswordAuth='on'
+# Public images never enable root password authentication over SSH. Key-based
+# SSH remains available when AUTHORIZED_KEYS is injected in a trusted build.
+set dropbear.main.PasswordAuth='off'
+set dropbear.main.RootPasswordAuth='off'
 set dropbear.main.Interface='maintenance'
 
 set system.@system[0].hostname='nanopi-neo3-plus'
@@ -96,7 +98,12 @@ uci commit dropbear
 uci commit system
 uci commit uhttpd
 
+# A unique per-device API token is generated on first boot and can be managed
+# from Network -> FM350 Manager -> Telemetry API. The API is limited to the
+# maintenance listener and also requires X-API-Key.
+/usr/sbin/fm350-api-token ensure >/dev/null 2>&1 || true
+
 /etc/init.d/fm350-autoconfig enable
 /etc/init.d/led restart 2>/dev/null || true
-logger -t firstboot 'NanoPi NEO3 Plus: FM350 WAN and routed RJ45 LAN configured'
+logger -t firstboot 'NanoPi NEO3 Plus: secure FM350 WAN, routed RJ45 LAN and telemetry API configured'
 exit 0
