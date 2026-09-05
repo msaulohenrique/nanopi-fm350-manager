@@ -2,34 +2,69 @@
 
 ## Source model
 
-The repository contains only the customization and orchestration code. It does not vendor FriendlyWrt, the Linux kernel, U-Boot, modemfeed or generated images.
+The repository contains only customization and orchestration code. It does not vendor FriendlyWrt, the Linux kernel, U-Boot, modemfeed or generated images.
 
 `scripts/discover-upstream.sh` selects the latest FriendlyWrt `master-v*` branch (or an explicitly requested version), reads `rk3528.xml`, resolves every project ref with `git ls-remote`, and writes `source-lock.json`. The lock also contains exact commits for:
 
-- [koshev-msk/modemfeed](https://github.com/koshev-msk/modemfeed);
-- [friendlyarm/build-env-on-ubuntu-bionic](https://github.com/friendlyarm/build-env-on-ubuntu-bionic);
-- the official [Gerrit `git-repo`](https://github.com/GerritCodeReview/git-repo) mirror.
+- `koshev-msk/modemfeed`;
+- `friendlyarm/build-env-on-ubuntu-bionic`;
+- the official Gerrit `git-repo` mirror.
 
-The fingerprint excludes its generation timestamp and includes all build-input blobs from this repository. The same inputs therefore produce the same release tag, while any firmware customization or upstream commit creates a new tag.
+The fingerprint excludes its generation timestamp and includes all build-input blobs from this repository. The same inputs therefore produce the same base firmware tag, while any firmware customization or upstream commit creates a new fingerprint.
 
-## GitHub Actions flow
+## Why build success is not boot success
 
-The release workflow is based on the build stages used by FriendlyELEC's official [Actions-FriendlyWrt](https://github.com/friendlyarm/Actions-FriendlyWrt) repository:
+GitHub Actions can compile U-Boot, kernel, rootfs and an SD image and can validate checksums and partition structure. It cannot physically power a NanoPi NEO3 Plus, observe its LEDs, verify Ethernet link or prove that the FM350 registers. The release system therefore has two explicit stages.
 
-1. Resolve and fingerprint all upstream sources without compiling.
-2. Skip if a published release already has that tag.
+## Automated candidate workflow
+
+`.github/workflows/release.yml` creates only `candidate-*` prereleases.
+
+1. Resolve and fingerprint every upstream source.
+2. Skip when the exact candidate fingerprint already exists unless force-build is requested.
 3. Compile FriendlyWrt rootfs in one Ubuntu 22.04 job.
-4. Store rootfs and host package manager temporarily in a draft release.
+4. Keep rootfs and host package manager temporarily in a draft candidate.
 5. Build U-Boot, kernel and the bootable SD image in a second job.
-6. Test gzip integrity and calculate SHA-256 for raw and compressed images.
-7. Replace intermediate assets with `.img.gz`, `SHA256SUMS` and `source-lock.json`, then publish the release.
-8. On failure, delete an incomplete draft and report the failed workflow in an issue.
+6. Validate gzip integrity.
+7. Verify minimum raw/compressed size and partition-table structure.
+8. Verify that the first MiB is not entirely zero.
+9. Generate SHA-256 for the compressed image, raw image and source lock.
+10. Publish as a GitHub prerelease, never as `latest`.
+11. Download the published assets again and re-run checksum/gzip verification.
+12. On failure, remove an incomplete draft and create/update an automated failure issue.
 
-The split is intentional. A complete local build used approximately 34 GB; standard public GitHub-hosted Linux runners provide 14 GB initially and have a six-hour job limit. The workflow removes unrelated preinstalled SDKs from the ephemeral runner, checks for at least 35 GB free and keeps each compilation stage below the job limit. See GitHub's [hosted-runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+Public candidate builds intentionally do not inject `ROOT_PASSWORD_HASH` or `AUTHORIZED_KEYS`. The shared image therefore cannot accidentally contain one repository-wide password or a personal key.
+
+The two compilation jobs remain split because complete FriendlyELEC builds are large and public runners have finite storage/runtime.
+
+## Hardware-verified promotion
+
+`.github/workflows/promote-hardware-verified.yml` is manual and works only from an exact `candidate-*` release.
+
+The workflow requires explicit confirmation of all of the following before it runs:
+
+- physical NanoPi NEO3 Plus boot;
+- RJ45 maintenance/DHCP path;
+- FM350 detection and mobile registration;
+- Internet traffic through the cellular WAN;
+- clean reboot.
+
+It then:
+
+1. verifies the source release is a prerelease;
+2. downloads all candidate assets;
+3. re-verifies SHA-256 and gzip integrity;
+4. creates `HARDWARE_VALIDATION.md` with tester, timestamp, checksums and validation notes;
+5. hashes the validation record itself;
+6. creates the non-candidate stable release and marks it `latest`.
+
+This promotion does not rebuild the firmware. Stable receives the exact `.img.gz`, `SHA256SUMS`, `RAW_IMAGE_SHA256` and `source-lock.json` that were physically tested.
+
+See [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md).
 
 ## Local build
 
-Use a clean x86-64 Ubuntu 22.04 host with at least 50 GB free, 16 GB RAM recommended, working `sudo`, and unrestricted access to GitHub. The dependency installer changes the host by installing FriendlyELEC's build packages; use a disposable VM if possible.
+Use a clean x86-64 Ubuntu 22.04 host with at least 50 GB free, 16 GB RAM recommended, working `sudo`, and unrestricted access to GitHub. The dependency installer changes the host by installing FriendlyELEC's build packages; a disposable VM is recommended.
 
 ```bash
 git clone https://github.com/msaulohenrique/nanopi-fm350-manager.git
@@ -56,22 +91,23 @@ FRIENDLYWRT_VERSION_OVERRIDE=25.12 \
   ./scripts/discover-upstream.sh source-lock.json
 ```
 
-## Optional credentials
+## Optional credentials for trusted private builds
 
-Generic public releases deliberately do not contain a personal SSH key. The upstream FriendlyWrt `root` / `password` credential remains in place unless a crypt(3) hash is supplied and is enabled for LuCI and SSH only through the maintenance interface. For repository-owned releases, create Actions secrets:
+Public automated releases do not inject credentials. Trusted local/private builds can export:
 
 - `AUTHORIZED_KEYS`: one or more complete OpenSSH public-key lines;
-- `ROOT_PASSWORD_HASH`: a SHA-256 (`$5$`), SHA-512 (`$6$`) or yescrypt (`$y$`) crypt hash.
+- `ROOT_PASSWORD_HASH`: SHA-256 (`$5$`), SHA-512 (`$6$`) or yescrypt (`$y$`) `crypt(3)` hash.
 
-The secrets are applied only in the image job and are not printed. Remember that a password hash embedded in a public image can be extracted and attacked offline; use a strong unique password and rotate it after flashing.
+If no root hash is supplied, the customization clears the inherited vendor password so first boot follows OpenWrt's normal empty-password onboarding in LuCI. SSH password authentication remains disabled by default.
 
-For a local build, export the same variables before `build-image.sh`. Never add `authorized_keys` or `root-password.hash` to Git.
+A password hash embedded in any image can be extracted and attacked offline. Use only a strong, unique value. Never add `authorized_keys` or `root-password.hash` to Git.
 
 ## Updating behavior
 
 - Upstream source changes are detected daily.
-- Recipe changes under `config/`, `overlay/`, `scripts/`, `targets/` or the release workflow trigger a build after reaching `main`.
-- Dependabot proposes pinned GitHub Action updates weekly.
-- A manual run can select a version or force an additional release.
+- Recipe changes under `config/`, `overlay/`, `scripts/`, `targets/`, `tests/` or the release workflows trigger a new candidate after reaching `main`.
+- Dependabot proposes pinned GitHub Action updates.
+- A manual candidate run can select a FriendlyWrt version or force another candidate.
+- Stable promotion is always an explicit separate action after physical validation.
 
 Scheduled workflows run only from the default branch. GitHub may disable schedules in public repositories after long inactivity, so check the Actions page if no daily run appears.
