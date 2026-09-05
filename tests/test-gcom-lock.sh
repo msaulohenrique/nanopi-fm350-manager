@@ -13,12 +13,10 @@ exit "${FAKE_GCOM_RC:-0}"
 EOF
 chmod +x "$workdir/gcom"
 
-# The wrapper uses the production lock path. Run this only on CI/dev hosts where
-# no FM350 daemon owns it; cleanup is guaranteed by the wrapper and this test.
-lock_dir=/tmp/fm350-at.lock
-rm -rf "$lock_dir"
+lock_dir="$workdir/fm350-at.lock"
 
-PATH="$workdir:$PATH" FAKE_GCOM_SLEEP=2 "$wrapper" -s fake.gcom &
+PATH="$workdir:$PATH" FM350_AT_LOCK_DIR="$lock_dir" FAKE_GCOM_SLEEP=2 \
+	"$wrapper" -s fake.gcom &
 first_pid=$!
 for _ in $(seq 1 20); do
 	[[ -d "$lock_dir" ]] && break
@@ -31,7 +29,8 @@ done
 }
 
 set +e
-PATH="$workdir:$PATH" FM350_AT_LOCK_WAIT=1 "$wrapper" -s fake.gcom >/dev/null 2>&1
+PATH="$workdir:$PATH" FM350_AT_LOCK_DIR="$lock_dir" FM350_AT_LOCK_WAIT=1 \
+	"$wrapper" -s fake.gcom >/dev/null 2>&1
 second_rc=$?
 set -e
 [[ "$second_rc" -eq 75 ]] || {
