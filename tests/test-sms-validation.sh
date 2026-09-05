@@ -20,11 +20,14 @@ expect_fail() {
 	fi
 }
 
-expect_ok 'Teste SMS 123 @ _ OK!'
+expect_ok 'Teste SMS 123 OK!'
 expect_ok "$(printf '%160s' '' | tr ' ' A)"
 expect_fail "$(printf '%161s' '' | tr ' ' A)"
 expect_fail 'ação com acento'
 expect_fail 'emoji 🚀'
+expect_fail 'at @ sign'
+expect_fail 'dollar $ sign'
+expect_fail 'under_score'
 expect_fail 'extension [brackets]'
 expect_fail "backslash \\"
 expect_fail 'caret ^'
