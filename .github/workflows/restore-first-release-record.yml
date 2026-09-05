@@ -1,0 +1,73 @@
+name: Restore first release record
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/restore-first-release-record.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: restore-first-release-record
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Restore historical release metadata without fabricating deleted assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: friendlywrt-25.12-ba32f08b5120
+          EXPECTED_COMMIT: c502365091b92ba0768acbfdcb90a89ec665140a
+          ORIGINAL_RUN: '31288484265'
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Historical release record already exists; nothing to restore."
+            exit 0
+          fi
+
+          tag_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)
+          [[ "$tag_commit" == "$EXPECTED_COMMIT" ]] || {
+            echo "Historical tag points to unexpected commit: $tag_commit" >&2
+            exit 1
+          }
+
+          cat >notes.md <<EOF
+          ## Historical first automated release record
+
+          This release page restores the metadata record for the first successful automated FriendlyWrt release produced by this repository.
+
+          - Original tag: \`$TAG\`
+          - Repository commit: \`$EXPECTED_COMMIT\`
+          - Original Actions run: #4 (run ID \`$ORIGINAL_RUN\`)
+          - Original successful publication: 9 August 2026
+          - Original source fingerprint: \`ba32f08b5120bef744a14d1c416a21a523819eeb2224b5e0d0a804a73e01c75f\`
+
+          ### Important integrity notice
+
+          The original GitHub Release object and its binary assets were deleted after publication. The old workflow did not retain an Actions artifact copy, so the original \`.img.gz\`, \`SHA256SUMS\`, \`RAW_IMAGE_SHA256\` and \`source-lock.json\` cannot be recovered from GitHub with their original bytes.
+
+          No current rebuild is attached here and no replacement binary is being presented as the original. This page exists only to restore the historical release record while preserving the surviving Git tag and audit trail.
+
+          Future releases use firmware-identity deduplication plus separate hardware-verified promotion.
+
+          ---
+
+          ## Registro histórico da primeira release automática
+
+          Esta página restaura o registro de metadados da primeira release automática bem-sucedida do FriendlyWrt produzida por este repositório.
+
+          Os assets binários originais foram apagados e o workflow antigo não manteve uma cópia como artifact do GitHub Actions. Por integridade, nenhuma recompilação atual é apresentada como se fosse o binário original.
+          EOF
+
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease \
+            --title 'Historical record · first automated FriendlyWrt release' \
+            --notes-file notes.md
+
+          echo "Restored historical release metadata for $TAG without replacement assets."
