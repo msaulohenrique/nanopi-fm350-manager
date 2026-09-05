@@ -21,7 +21,16 @@ For SRTLA bonding with multiple NanoPi gateways, each unit is still a separate n
 
 ## Telemetry API
 
-The gateway now exposes modem-aware telemetry that RatoNet or another monitoring system can query instead of inferring cellular state from the Ethernet interface name.
+The gateway exposes modem-aware telemetry that RatoNet or another monitoring system can query instead of inferring cellular state from the Ethernet interface name.
+
+For security, external telemetry is **disabled by default**. On first boot:
+
+1. open LuCI at `https://192.168.77.1/` on the trusted maintenance network;
+2. set a unique root password in **System → Administration**;
+3. open **Network → FM350 Manager → Telemetry API**;
+4. enable the API and copy the per-device token.
+
+The token is generated independently on first boot. Enabling or rotating it is refused until administrator onboarding is complete.
 
 Endpoint:
 
@@ -34,8 +43,6 @@ Authentication header:
 ```text
 X-API-Key: <per-device-token>
 ```
-
-The token is generated independently on first boot and is managed in **Network → FM350 Manager → Telemetry API**.
 
 Example:
 
