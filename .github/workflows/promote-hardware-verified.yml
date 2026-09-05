@@ -1,0 +1,166 @@
+name: Promote hardware-verified release
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Candidate release tag, for example candidate-friendlywrt-25.12-abcdef123456
+        required: true
+        type: string
+      tester:
+        description: Person who performed the physical hardware validation
+        required: true
+        type: string
+      boot_confirmed:
+        description: NanoPi NEO3 Plus completed boot successfully
+        required: true
+        default: false
+        type: boolean
+      ethernet_confirmed:
+        description: RJ45 maintenance/DHCP path works
+        required: true
+        default: false
+        type: boolean
+      modem_confirmed:
+        description: FM350-GL was detected and registered
+        required: true
+        default: false
+        type: boolean
+      internet_confirmed:
+        description: Internet traffic passed through the FM350 WAN
+        required: true
+        default: false
+        type: boolean
+      reboot_confirmed:
+        description: At least one clean reboot was tested
+        required: true
+        default: false
+        type: boolean
+      validation_notes:
+        description: Hardware, microSD, power supply, modem firmware/operator and observations
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hardware-stable-promotion
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Enforce complete physical validation checklist
+        env:
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          BOOT: ${{ inputs.boot_confirmed }}
+          ETHERNET: ${{ inputs.ethernet_confirmed }}
+          MODEM: ${{ inputs.modem_confirmed }}
+          INTERNET: ${{ inputs.internet_confirmed }}
+          REBOOT: ${{ inputs.reboot_confirmed }}
+        run: |
+          [[ "$CANDIDATE_TAG" == candidate-* ]] || {
+            echo "candidate_tag must start with candidate-" >&2
+            exit 2
+          }
+          for result in "$BOOT" "$ETHERNET" "$MODEM" "$INTERNET" "$REBOOT"; do
+            [[ "$result" == true ]] || {
+              echo "Every physical validation checkbox must be confirmed" >&2
+              exit 2
+            }
+          done
+
+      - name: Verify candidate release and download immutable assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+        run: |
+          is_prerelease=$(gh release view "$CANDIDATE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)
+          [[ "$is_prerelease" == true ]] || {
+            echo "The source release is not marked as a candidate/prerelease" >&2
+            exit 1
+          }
+          mkdir candidate
+          gh release download "$CANDIDATE_TAG" --repo "$GITHUB_REPOSITORY" --dir candidate
+          test -f candidate/SHA256SUMS
+          test -f candidate/RAW_IMAGE_SHA256
+          test -f candidate/source-lock.json
+          image=$(find candidate -maxdepth 1 -type f -name '*.img.gz' -print -quit)
+          [[ -n "$image" ]] || { echo 'Candidate image is missing' >&2; exit 1; }
+          (cd candidate && sha256sum -c SHA256SUMS)
+          gzip -t "$image"
+          printf '%s\n' "$(basename "$image")" >candidate/image-name.txt
+
+      - name: Create hardware validation record
+        env:
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          TESTER: ${{ inputs.tester }}
+          NOTES: ${{ inputs.validation_notes }}
+        run: |
+          image=$(cat candidate/image-name.txt)
+          image_sha=$(awk -v image="$image" '$2 == image {print $1}' candidate/SHA256SUMS)
+          raw_sha=$(awk '{print $1}' candidate/RAW_IMAGE_SHA256)
+          cat >candidate/HARDWARE_VALIDATION.md <<EOF
+          # Hardware validation
+
+          - Candidate: \`$CANDIDATE_TAG\`
+          - Tester: $TESTER
+          - Validated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          - Hardware: NanoPi NEO3 Plus + Fibocom FM350-GL
+          - Compressed image SHA-256: \`$image_sha\`
+          - Raw image SHA-256: \`$raw_sha\`
+
+          ## Required checks
+
+          - [x] Physical boot completed
+          - [x] RJ45 maintenance/DHCP path working
+          - [x] FM350-GL detected and registered
+          - [x] Internet traffic passed through cellular WAN
+          - [x] Clean reboot tested
+
+          ## Validation notes
+
+          $NOTES
+          EOF
+          sha256sum candidate/HARDWARE_VALIDATION.md >candidate/HARDWARE_VALIDATION_SHA256
+
+      - name: Publish stable hardware-verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+        run: |
+          stable_tag=${CANDIDATE_TAG#candidate-}
+          if gh release view "$stable_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Stable release already exists: $stable_tag" >&2
+            exit 1
+          fi
+          candidate_body=$(gh release view "$CANDIDATE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
+          {
+            printf '%s\n\n' "$candidate_body"
+            echo '---'
+            echo
+            echo '## Hardware verified / Validada em hardware'
+            echo
+            echo 'This release was promoted only after a physical NanoPi NEO3 Plus test confirmed boot, RJ45, FM350 registration, cellular Internet and reboot. See `HARDWARE_VALIDATION.md` in the release assets.'
+            echo
+            echo 'Esta release só foi promovida após teste físico no NanoPi NEO3 Plus confirmar boot, RJ45, registro do FM350, Internet celular e reinicialização. Consulte `HARDWARE_VALIDATION.md` nos assets.'
+          } >candidate/stable-notes.md
+
+          image=$(cat candidate/image-name.txt)
+          gh release create "$stable_tag" --repo "$GITHUB_REPOSITORY" --latest \
+            --title "Hardware verified · ${stable_tag#friendlywrt-}" \
+            --notes-file candidate/stable-notes.md \
+            "candidate/$image" \
+            candidate/SHA256SUMS \
+            candidate/RAW_IMAGE_SHA256 \
+            candidate/source-lock.json \
+            candidate/HARDWARE_VALIDATION.md \
+            candidate/HARDWARE_VALIDATION_SHA256
+
+          echo "### Stable release promoted" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Candidate: \`$CANDIDATE_TAG\`" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Stable: \`$stable_tag\`" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Physical validation: boot + RJ45 + FM350 + Internet + reboot" >>"$GITHUB_STEP_SUMMARY"
