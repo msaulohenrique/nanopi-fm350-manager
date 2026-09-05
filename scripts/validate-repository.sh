@@ -36,6 +36,7 @@ required=(
 	overlay/rootfs/www/luci-static/resources/view/fm350/status.js
 	overlay/rootfs/www/luci-static/resources/view/fm350/telemetry.js
 	scripts/validate-image-artifacts.sh
+	tests/test-firmware-fingerprint.py
 	tests/test-signal-metrics.sh
 	targets/rk3528_fm350.mk
 )
@@ -91,6 +92,8 @@ grep -q 'X-API-Key' overlay/rootfs/www/cgi-bin/fm350-telemetry
 grep -q 'json_add_string rsrp' overlay/rootfs/usr/sbin/fm350-status
 grep -q 'json_add_string rsrq' overlay/rootfs/usr/sbin/fm350-status
 grep -q 'json_add_string sinr' overlay/rootfs/usr/sbin/fm350-status
+grep -q 'provenance_fingerprint' scripts/resolve-lock.py
+grep -q 'firmware_identity' scripts/resolve-lock.py
 if grep -Eq 'json_add_string (pincode|password|username)' overlay/rootfs/usr/sbin/fm350-status; then
 	echo "The status API must not expose stored cellular secrets" >&2
 	exit 1
@@ -114,7 +117,7 @@ if grep -q '"$ROOTFS_DIR/root/.ssh/authorized_keys"' overlay/install.sh; then
 	exit 1
 fi
 
-python3 -m compileall -q scripts
+python3 -m compileall -q scripts tests/test-firmware-fingerprint.py
 python3 -m json.tool overlay/rootfs/usr/share/luci/menu.d/luci-app-fm350.json >/dev/null
 python3 -m json.tool overlay/rootfs/usr/share/rpcd/acl.d/luci-app-fm350.json >/dev/null
 bash -n overlay/rootfs/usr/sbin/fm350-control
@@ -131,6 +134,7 @@ node -e 'new Function(require("fs").readFileSync(process.argv[1], "utf8"))' \
 	overlay/rootfs/www/luci-static/resources/view/fm350/status.js
 node -e 'new Function(require("fs").readFileSync(process.argv[1], "utf8"))' \
 	overlay/rootfs/www/luci-static/resources/view/fm350/telemetry.js
+python3 "$REPO_ROOT/tests/test-firmware-fingerprint.py"
 "$REPO_ROOT/tests/test-fm350-find-port.sh"
 bash "$REPO_ROOT/tests/test-patch-xmm-proto.sh"
 bash "$REPO_ROOT/tests/test-signal-metrics.sh"
