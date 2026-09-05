@@ -59,9 +59,9 @@ esac
 api_enabled=$(uci -q get fm350.api.enabled)
 [ "$api_enabled" = 1 ] && api_enabled_boolean=1 || api_enabled_boolean=0
 
-# All AT-port users share the same lock directory. Status is best-effort: if a
-# user action (SMS/radio) already owns the modem, return network state without
-# radio metrics rather than racing gcom on the same tty.
+# All project-owned AT-port users share the same lock directory. The patched
+# netifd/XMM path also uses this lock. Keep the process guard as defense in
+# depth for any external/uncoordinated gcom process that may already own tty.
 at_lock_dir=/tmp/fm350-at.lock
 at_lock_held=0
 release_at_lock() {
@@ -74,7 +74,7 @@ trap release_at_lock 0
 trap 'release_at_lock; exit 1' 1 2 15
 
 at_output=
-if [ -c "$device" ] && mkdir "$at_lock_dir" 2>/dev/null; then
+if [ -c "$device" ] && ! pidof gcom >/dev/null 2>&1 && mkdir "$at_lock_dir" 2>/dev/null; then
 	at_lock_held=1
 	at_output=$(timeout 12 gcom -d "$device" -s /etc/gcom/fm350-status.gcom 2>/dev/null || true)
 	release_at_lock
