@@ -33,8 +33,8 @@ PATH="$workdir:$PATH" FM350_AT_LOCK_DIR="$lock_dir" FM350_AT_LOCK_WAIT=1 \
 	sh "$wrapper" -s fake.gcom >/dev/null 2>&1
 second_rc=$?
 set -e
-[[ "$second_rc" -eq 75 ]] || {
-	echo "Expected a competing session to exit 75, got $second_rc" >&2
+[[ "$second_rc" -eq 1 ]] || {
+	echo "Expected a competing session to exit 1 for netifd, got $second_rc" >&2
 	kill "$first_pid" 2>/dev/null || true
 	exit 1
 }
