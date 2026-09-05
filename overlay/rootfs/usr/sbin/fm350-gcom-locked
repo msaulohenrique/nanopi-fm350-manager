@@ -22,7 +22,10 @@ while ! mkdir "$lock_dir" 2>/dev/null; do
 	waited=$((waited + 1))
 	if [ "$waited" -ge "$max_wait" ]; then
 		echo 'Timed out waiting for the FM350 AT port lock' >&2
-		exit 75
+		# xmm.sh treats rc=1 as an AT-port/probe failure. Reuse that semantic
+		# instead of returning an unhandled custom status that could let setup
+		# continue after the final probe attempt.
+		exit 1
 	fi
 	sleep 1
 done
