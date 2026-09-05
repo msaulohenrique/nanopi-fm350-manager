@@ -1,6 +1,7 @@
 BEGIN {
 	setup_replacements = 0
 	validation_replacements = 0
+	netifd_gcom_replacements = 0
 }
 
 $0 == "\tDATA=$(CID=$profile DNSQUERY=$DNSQUERY gcom -d $device -s /etc/gcom/xmm-config.gcom)" {
@@ -8,7 +9,7 @@ $0 == "\tDATA=$(CID=$profile DNSQUERY=$DNSQUERY gcom -d $device -s /etc/gcom/xmm
 	print "\tip4addr="
 	print "\tlladdr="
 	print "\tfor attempt in $(seq 1 $maxfail); do"
-	print "\t\tDATA=$(CID=\"$profile\" DNSQUERY=\"$DNSQUERY\" gcom -d \"$device\" -s /etc/gcom/xmm-config.gcom)"
+	print "\t\tDATA=$(CID=\"$profile\" DNSQUERY=\"$DNSQUERY\" /usr/sbin/fm350-gcom-locked -d \"$device\" -s /etc/gcom/xmm-config.gcom)"
 	print "\t\tip4addr=$(echo \"$DATA\" | awk -F [,] '/^\\+CGPADDR/{gsub(\"\\r|\\\"\", \"\"); print $2}') >/dev/null 2>&1"
 	print "\t\tlladdr=$(echo \"$DATA\" | awk -F [,] '/^\\+CGPADDR/{gsub(\"\\r|\\\"\", \"\"); print $3}') >/dev/null 2>&1"
 	print "\t\tif valid_ip4 \"$ip4addr\" && [ \"$ip4addr\" != \"0.0.0.0\" ]; then"
@@ -21,6 +22,7 @@ $0 == "\tDATA=$(CID=$profile DNSQUERY=$DNSQUERY gcom -d $device -s /etc/gcom/xmm
 	getline
 	getline
 	setup_replacements++
+	netifd_gcom_replacements++
 	next
 }
 
@@ -36,11 +38,14 @@ $0 == "\t\t$(valid_ip4 $ip4addr) && [ \"$ip4addr\" != \"0.0.0.0\" ] && {" {
 	next
 }
 
-{ print }
+{
+	netifd_gcom_replacements += gsub(/gcom -/, "/usr/sbin/fm350-gcom-locked -")
+	print
+}
 
 END {
-	if (setup_replacements != 1 || validation_replacements != 2) {
-		print "Unsupported xmm.sh layout; patch was not applied" > "/dev/stderr"
+	if (setup_replacements != 1 || validation_replacements != 2 || netifd_gcom_replacements != 6) {
+		print "Unsupported xmm.sh layout; patch was not applied completely" > "/dev/stderr"
 		exit 42
 	}
 }

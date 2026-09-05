@@ -9,6 +9,11 @@ uci_defaults=overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
 hotplug=overlay/rootfs/etc/hotplug.d/usb/95-fm350-autoconfig
 api_token=overlay/rootfs/usr/sbin/fm350-api-token
 status=overlay/rootfs/usr/sbin/fm350-status
+sms=overlay/rootfs/usr/sbin/fm350-sms
+radio=overlay/rootfs/usr/sbin/fm350-radio
+sms_lib=overlay/rootfs/usr/lib/fm350/sms.sh
+xmm_patch=overlay/patch-xmm-proto.awk
+gcom_wrapper=overlay/rootfs/usr/sbin/fm350-gcom-locked
 release=.github/workflows/release.yml
 
 # PR #1: configure the actual Dropbear server and accept unpadded USB hotplug VID.
@@ -26,11 +31,27 @@ if grep -Fq -- "--json number --jq '.[0].number // empty'" "$release"; then
 	exit 1
 fi
 
-# PR #5: status polling shares the AT lock; outbound text is validated before gcom.
-grep -Fq 'at_lock_dir=/tmp/fm350-at.lock' "$status"
-grep -Fq "mkdir \"\$at_lock_dir\"" "$status"
-grep -Fq '. /usr/lib/fm350/sms.sh' overlay/rootfs/usr/sbin/fm350-sms
-grep -Fq "fm350_sms_text_is_basic \"\$text\"" overlay/rootfs/usr/sbin/fm350-sms
+# PR #5 + late PR #9/#12 reviews: every project-owned AT operation goes through
+# the same kernel-backed wrapper; status also guards against external raw gcom.
+grep -Fq '! pidof gcom >/dev/null 2>&1' "$status"
+for caller in "$status" "$sms" "$radio"; do
+	grep -Fq '/usr/sbin/fm350-gcom-locked' "$caller"
+	if grep -Eq '(^|[[:space:]])gcom -' "$caller"; then
+		echo "Raw gcom call survived in $caller" >&2
+		exit 1
+	fi
+done
+grep -Fq '. /usr/lib/fm350/sms.sh' "$sms"
+grep -Fq "fm350_sms_text_is_basic \"\$text\"" "$sms"
+
+grep -Fq '/usr/sbin/fm350-gcom-locked' "$xmm_patch"
+grep -Fq 'netifd_gcom_replacements != 6' "$xmm_patch"
+grep -Fq 'FM350_AT_LOCK_FILE:-/var/lock/fm350-at.lock' "$gcom_wrapper"
+# Assert literal shell variables in the wrapper source.
+# shellcheck disable=SC2016
+grep -Fq '/usr/bin/flock -x -w "$max_wait" -F "$lock_file" gcom "$@"' "$gcom_wrapper"
+grep -Fq 'CONFIG_PACKAGE_flock=y' config/07-fm350
+grep -Fq "*'@'*|*'\$'*|*'_'*) return 1 ;;" "$sms_lib"
 
 # PR #6: UCI backing file exists before fm350.api and host validator is invoked safely.
 grep -Fq '[ -e /etc/config/fm350 ] || : >/etc/config/fm350 || return 1' "$api_token"
@@ -39,6 +60,7 @@ grep -Fq "bash \"\$SCRIPT_DIR/validate-image-artifacts.sh\"" scripts/build-image
 # The target-rootfs executables flagged during the audit are made executable at image build time.
 for target in \
 	usr/sbin/fm350-api-token \
+	usr/sbin/fm350-gcom-locked \
 	usr/sbin/fm350-telemetry \
 	www/cgi-bin/fm350-telemetry; do
 	grep -Fq "chmod 0755 \"\$ROOTFS_DIR/$target\"" overlay/install.sh || {
@@ -47,4 +69,6 @@ for target in \
 	}
 done
 
+bash "$REPO_ROOT/tests/test-gcom-lock.sh"
+bash "$REPO_ROOT/tests/test-process-gate.sh"
 echo 'Historical PR review regression checks passed'

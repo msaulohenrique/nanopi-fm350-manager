@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Serialize every FM350 AT session with a kernel-backed advisory lock.
+# util-linux flock -F executes gcom without forking, so the process holding the
+# lock is also the gcom process. The kernel therefore releases the lock even if
+# the process is terminated with SIGKILL. The lock file itself may remain, but
+# an unlocked file is immediately reusable and cannot wedge future sessions.
+lock_file=${FM350_AT_LOCK_FILE:-/var/lock/fm350-at.lock}
+max_wait=${FM350_AT_LOCK_WAIT:-30}
+
+[ -x /usr/bin/flock ] || {
+	echo 'flock is required for FM350 AT serialization' >&2
+	exit 1
+}
+
+case "$max_wait" in
+	''|*[!0-9]*)
+		echo 'FM350_AT_LOCK_WAIT must be a non-negative integer' >&2
+		exit 1
+		;;
+esac
+
+exec /usr/bin/flock -x -w "$max_wait" -F "$lock_file" gcom "$@"
