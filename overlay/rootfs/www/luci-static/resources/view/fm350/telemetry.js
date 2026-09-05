@@ -2,7 +2,6 @@
 'require view';
 'require fs';
 'require ui';
-'require dom';
 
 function parseResult(result) {
 	let payload = {};
@@ -13,10 +12,16 @@ function parseResult(result) {
 }
 
 function row(label, value) {
+	const rendered = (value == null || value === '') ? '-' :
+		(typeof value === 'string' || typeof value === 'number' ? String(value) : value);
 	return E('tr', { 'class': 'tr' }, [
 		E('td', { 'class': 'td left', 'style': 'width:35%;font-weight:600' }, [ label ]),
-		E('td', { 'class': 'td left' }, [ String(value == null || value === '' ? '-' : value) ])
+		E('td', { 'class': 'td left' }, [ rendered ])
 	]);
+}
+
+function curlExample(endpoint, token) {
+	return "curl -k -H 'X-API-Key: " + (token || 'TOKEN') + "' '" + endpoint + "'";
 }
 
 return view.extend({
@@ -32,8 +37,10 @@ return view.extend({
 		return fs.exec('/usr/sbin/fm350-api-token', [ action ]).then(parseResult).then(function(result) {
 			const token = document.getElementById('fm350-api-token');
 			const state = document.getElementById('fm350-api-state');
+			const example = document.getElementById('fm350-api-example');
 			if (token) token.value = result.token || '';
 			if (state) state.textContent = result.enabled ? 'Enabled' : 'Disabled';
+			if (example) example.textContent = curlExample(result.endpoint, result.token);
 			ui.addNotification(null, E('p', {}, [ 'Telemetry API updated.' ]), 'info');
 			return result;
 		}).catch(function(error) {
@@ -49,7 +56,6 @@ return view.extend({
 		const radio = telemetry.radio || {};
 		const connection = telemetry.connection || {};
 		const endpoint = api.endpoint || 'https://192.168.77.1/cgi-bin/fm350-telemetry';
-		const example = "curl -k -H 'X-API-Key: " + (api.token || 'TOKEN') + "' '" + endpoint + "'";
 		const nodes = [
 			E('h2', {}, [ 'FM350 Telemetry API' ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
@@ -81,7 +87,7 @@ return view.extend({
 					E('button', { 'class': 'cbi-button cbi-button-negative', 'click': L.bind(this.runTokenAction, this, 'rotate') }, [ 'Rotate token' ])
 				]),
 				E('p', { 'style': 'margin-top:1em' }, [ 'Example:' ]),
-				E('pre', { 'style': 'white-space:pre-wrap;word-break:break-all' }, [ example ])
+				E('pre', { 'id': 'fm350-api-example', 'style': 'white-space:pre-wrap;word-break:break-all' }, [ curlExample(endpoint, api.token) ])
 			]),
 			E('div', { 'class': 'cbi-section' }, [
 				E('h3', {}, [ 'Live cellular telemetry' ]),
