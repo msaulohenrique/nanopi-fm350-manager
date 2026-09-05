@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Resolve every moving upstream ref into a reproducible source lock."""
+"""Resolve moving upstream refs into a reproducible source lock.
+
+`fingerprint` identifies firmware-source/recipe inputs that can change the
+resulting firmware. Build orchestration and provenance are recorded separately
+so CI/tooling churn does not create a new firmware release by itself.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +16,7 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 
 def git_head(url: str, ref: str) -> str:
@@ -29,6 +35,40 @@ def git_head(url: str, ref: str) -> str:
     return matches[0]
 
 
+def digest(payload: Any) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def firmware_identity(
+    version: str,
+    projects: list[dict[str, str]],
+    resources: dict[str, dict[str, str]],
+    customization_sha256: str,
+) -> dict[str, Any]:
+    """Return only inputs that define the firmware release identity.
+
+    The manifest repository HEAD, host build environment and git-repo tool are
+    provenance. They are deliberately excluded: if the resolved firmware
+    project commits, modem packages and local firmware recipe are unchanged,
+    users should not receive another firmware release merely because build
+    tooling moved.
+    """
+    modemfeed = resources.get("modemfeed")
+    if not modemfeed:
+        raise RuntimeError("The modemfeed resource is required")
+
+    return {
+        "friendlywrt_version": version,
+        "projects": [
+            {"path": project["path"], "commit": project["commit"]}
+            for project in projects
+        ],
+        "modemfeed_commit": modemfeed["commit"],
+        "customization_sha256": customization_sha256,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest-file", required=True)
@@ -38,6 +78,7 @@ def main() -> None:
     parser.add_argument("--project-base-url", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--customization-sha256", required=True)
+    parser.add_argument("--provenance-sha256", required=True)
     parser.add_argument("--resource", action="append", default=[])
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
@@ -87,8 +128,12 @@ def main() -> None:
             "commit": git_head(url, ref),
         }
 
-    payload = {
-        "schema": 1,
+    identity = firmware_identity(
+        args.version, projects, resources, args.customization_sha256
+    )
+
+    payload: dict[str, Any] = {
+        "schema": 2,
         "friendlywrt_version": args.version,
         "manifest": {
             "url": args.manifest_url,
@@ -99,9 +144,17 @@ def main() -> None:
         "projects": projects,
         "resources": dict(sorted(resources.items())),
         "customization_sha256": args.customization_sha256,
+        "provenance_sha256": args.provenance_sha256,
+        "firmware_identity": identity,
     }
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    payload["fingerprint"] = hashlib.sha256(canonical.encode()).hexdigest()
+    payload["fingerprint"] = digest(identity)
+
+    provenance_payload = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"fingerprint", "provenance_fingerprint", "generated_at"}
+    }
+    payload["provenance_fingerprint"] = digest(provenance_payload)
     payload["generated_at"] = dt.datetime.now(dt.timezone.utc).replace(
         microsecond=0
     ).isoformat().replace("+00:00", "Z")
