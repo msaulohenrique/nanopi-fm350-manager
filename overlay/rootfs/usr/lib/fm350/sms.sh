@@ -10,7 +10,12 @@ fm350_sms_text_is_basic() {
 	[ -n "$text" ] || return 1
 	[ "${#text}" -le 160 ] || return 1
 
-	# Reject control bytes, UTF-8/non-ASCII and other non-printable input.
+	# grep operates line-by-line and therefore cannot match the newline separator
+	# itself. Remove CR/LF and compare first so multiline input is rejected.
+	single_line=$(printf '%s' "$text" | tr -d '\r\n')
+	[ "$single_line" = "$text" ] || return 1
+
+	# Reject remaining control bytes, UTF-8/non-ASCII and non-printable input.
 	if LC_ALL=C printf '%s' "$text" | grep -q '[^ -~]'; then
 		return 1
 	fi
