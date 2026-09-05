@@ -86,9 +86,9 @@ This promotion does not rebuild the firmware. Stable receives the exact `.img.gz
 
 See [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md).
 
-## Historical release note
+## Release history
 
-The first successful automated release of the current pre-hardening firmware state was `friendlywrt-25.12-ba32f08b5120`, produced by Actions run #4 on 9 August 2026. Its Git tag still exists, but the GitHub Release object and binary assets were later deleted. Because the old workflow did not retain an Actions artifact copy, the original `.img.gz` cannot be cryptographically restored from GitHub after deletion. The tag is retained as historical provenance; a rebuild must never be presented as the original binary unless its checksum matches the original asset.
+Pre-policy automated releases and tags are archived in [RELEASE_HISTORY.md](RELEASE_HISTORY.md). The active Releases page is reserved for current `candidate-*` builds and hardware-verified stable promotions.
 
 ## Local build
 
