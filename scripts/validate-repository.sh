@@ -23,6 +23,7 @@ required=(
 	overlay/rootfs/etc/rc.button/BTN_1
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
 	overlay/rootfs/usr/lib/fm350/signal.sh
+	overlay/rootfs/usr/lib/fm350/sms.sh
 	overlay/rootfs/usr/sbin/fm350-control
 	overlay/rootfs/usr/sbin/fm350-radio
 	overlay/rootfs/usr/sbin/fm350-sms
@@ -37,7 +38,9 @@ required=(
 	overlay/rootfs/www/luci-static/resources/view/fm350/telemetry.js
 	scripts/validate-image-artifacts.sh
 	tests/test-firmware-fingerprint.py
+	tests/test-review-regressions.sh
 	tests/test-signal-metrics.sh
+	tests/test-sms-validation.sh
 	targets/rk3528_fm350.mk
 )
 for path in "${required[@]}"; do
@@ -75,6 +78,8 @@ grep -q "set dhcp.maintenance.ignore='0'" \
 # Assert the literal variable reference in source.
 # shellcheck disable=SC2016
 grep -q 'uci add_list "$wan_zone.network=cellular"' \
+	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
+grep -q "set dropbear.main=dropbear" \
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
 grep -q "set dropbear.main.PasswordAuth='off'" \
 	overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
@@ -120,6 +125,7 @@ fi
 python3 -m compileall -q scripts tests/test-firmware-fingerprint.py
 python3 -m json.tool overlay/rootfs/usr/share/luci/menu.d/luci-app-fm350.json >/dev/null
 python3 -m json.tool overlay/rootfs/usr/share/rpcd/acl.d/luci-app-fm350.json >/dev/null
+bash -n overlay/rootfs/usr/lib/fm350/sms.sh
 bash -n overlay/rootfs/usr/sbin/fm350-control
 bash -n overlay/rootfs/usr/sbin/fm350-radio
 bash -n overlay/rootfs/usr/sbin/fm350-sms
@@ -128,7 +134,9 @@ bash -n overlay/rootfs/usr/sbin/fm350-telemetry
 bash -n overlay/rootfs/usr/sbin/fm350-api-token
 bash -n overlay/rootfs/www/cgi-bin/fm350-telemetry
 bash -n scripts/validate-image-artifacts.sh
+bash -n tests/test-review-regressions.sh
 bash -n tests/test-signal-metrics.sh
+bash -n tests/test-sms-validation.sh
 bash -n overlay/rootfs/etc/rc.button/BTN_1
 node -e 'new Function(require("fs").readFileSync(process.argv[1], "utf8"))' \
 	overlay/rootfs/www/luci-static/resources/view/fm350/status.js
@@ -137,5 +145,7 @@ node -e 'new Function(require("fs").readFileSync(process.argv[1], "utf8"))' \
 python3 "$REPO_ROOT/tests/test-firmware-fingerprint.py"
 "$REPO_ROOT/tests/test-fm350-find-port.sh"
 bash "$REPO_ROOT/tests/test-patch-xmm-proto.sh"
+bash "$REPO_ROOT/tests/test-review-regressions.sh"
 bash "$REPO_ROOT/tests/test-signal-metrics.sh"
+bash "$REPO_ROOT/tests/test-sms-validation.sh"
 echo "Repository validation passed"
