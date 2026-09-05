@@ -2,53 +2,60 @@
 
 [English](../README.md) · [Português (Brasil)](README.pt-BR.md) · [Español](README.es.md) · [Français](README.fr.md)
 
-这是为 NanoPi NEO3 Plus 和 Fibocom FM350-GL 5G 模组准备的可复现 FriendlyWrt 镜像。默认蜂窝配置使用巴西 APN `surf.br`，每个上游源码提交都会记录在 `source-lock.json` 中。
+这是面向 NanoPi NEO3 Plus 与 Fibocom FM350-GL 5G 模组的可复现 FriendlyWrt 固件。默认移动网络 APN 为 `surf.br`，所有上游源码都固定到 `source-lock.json` 中记录的精确 commit。
 
-## 已预配置
+## 架构
 
-- 自动识别 FM350-GL USB 模式 `0e8d:7126`、`0e8d:7127` 及对应 AT 端口。
-- 集成 [modemfeed](https://github.com/koshev-msk/modemfeed) 的 `xmm-modem` 和 `luci-proto-xmm`。
-- IPv4 蜂窝连接使用 `surf.br`，路由度量值 10，优先使用。
-- FM350 蜂窝接口作为互联网 WAN，并启用 IPv4 地址伪装。
-- 唯一 RJ45 作为下游路由器的 DHCP LAN，网关为 `192.168.77.1/24`。
-- LuCI、SSH、DNS 和蜂窝转发均通过同一 RJ45 提供。
-- 多语言 **网络 → FM350 Manager** 面板，提供状态、完整 APN/SIM 配置、短信、无线分析及连接控制。
-- `sys_led` 显示系统心跳；`user_led` 显示 FM350 链路和 RX/TX 流量。
-- 在维护接口上通过 LuCI 和 SSH 提供完整 root 管理权限。
+FM350 作为蜂窝 WAN。NanoPi 唯一的 RJ45 作为 `192.168.77.1/24` 的 DHCP/NAT 维护与下游 LAN。SRTLA/RatoNet 多链路 bonding 仍由下游编码器或路由器处理；NanoPi 保持独立蜂窝网关角色。
 
-## 下载与写入
+## 安全的首次启动
 
-1. 从 [Releases](https://github.com/msaulohenrique/nanopi-fm350-manager/releases) 下载最新 `.img.gz` 和 `SHA256SUMS`。
-2. 校验 SHA-256。
-3. 使用 [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 或 balenaEtcher 直接写入压缩镜像。
-4. 插入 microSD、连接 FM350-GL 并启动 NanoPi。首次启动准备分区可能需要几分钟。
+公开自动构建不会写入所有设备共用的管理员密码，也不会写入个人 SSH key。若可信私有构建未提供 `ROOT_PASSWORD_HASH`，构建过程会清除 FriendlyWrt 继承的厂商默认密码，并采用 OpenWrt 的正常首次登录流程。
 
-SIM 卡应已激活且不要求 PIN；如果需要 PIN，请先在 LuCI 中配置。
+1. 首次启动时只连接可信维护网络。
+2. 打开 `https://192.168.77.1/`。
+3. 第一次登录使用用户 `root`，密码留空。
+4. 立即在 **System → Administration** 中设置强且唯一的密码。
+5. SSH 密码登录默认关闭，推荐使用 `AUTHORIZED_KEYS`。
 
-## 连接下游路由器
+详见 [SECURITY.md](../SECURITY.md)。
 
-| 连接 | 客户端设置 | NanoPi 地址 | 行为 |
-| --- | --- | --- | --- |
-| 路由器 WAN 口 | DHCP/自动 | `192.168.77.1` | 获取 `192.168.77.100–149`、DNS 和蜂窝互联网 |
-| 直接维护电脑 | DHCP/自动，或静态 `192.168.77.2/24` | `192.168.77.1` | 通过同一网线访问 LuCI、SSH 和蜂窝互联网 |
+## 遥测
 
-维护时访问 `https://192.168.77.1/`。本地证书可能触发浏览器首次警告。
+系统可报告 RSSI、RSRP、RSRQ，以及模组可用时的 NR SINR，同时提供 RAT、运营商、TAC、Cell ID、频段、IP 与流量信息。
 
-请将 NanoPi 的 RJ45 连接到下游路由器的 **WAN/Internet** 口，并将该端口设为 DHCP。路由器 LAN 必须使用不同子网，例如 `192.168.1.0/24`。GPIO 用户按钮（`BTN_1`）在松开时安全重启；**MASK** 按钮保留恢复功能。
+受 token 保护的 API：
 
-如果未设置 `ROOT_PASSWORD_HASH`，镜像保留 FriendlyWrt 初始凭据：用户名 `root`、密码 `password`。从维护客户端登录 LuCI 或 SSH 后拥有完整管理权限。永久部署时必须立即修改此公开密码。`AUTHORIZED_KEYS` 可选地添加 SSH 恢复密钥。
+```text
+https://192.168.77.1/cgi-bin/fm350-telemetry
+```
 
-## 调制解调器面板与 LED
+每台设备的独立 token 可在 **Network → FM350 Manager → Telemetry API** 中管理：
 
-登录后打开 **网络 → FM350 Manager**。面板显示 SIM、运营商、网络技术、RAT、信号、网络和 IP。分析区包含信号/流量图、当前频段/信道/PCI/带宽以及调制解调器支持的全部 3G/4G/5G 频段。完整表单管理 APN、PDP、CID、SIM PIN 和 PAP/CHAP 凭据，且不会把已保存的秘密返回浏览器。短信区可读取 ME/SM、解码 UCS-2、发送最多 160 字节的标准文本并删除短信。
+```bash
+curl -k -H 'X-API-Key: TOKEN' 'https://192.168.77.1/cgi-bin/fm350-telemetry'
+```
 
-常用操作、APN、信号、图表和短信始终可见；频段矩阵、CID 与凭据收纳在高级折叠区。控件会根据当前状态动态启用。
+返回数据会区分 `physical_transport: ethernet` 与 `upstream_type: cellular`。这样 RatoNet 可以继续使用真实 Ethernet 接口进行 SRTLA 绑定，同时补充 RSRP/RSRQ/SINR 与蜂窝网络信息。参见 [RATONET.md](RATONET.md)。
 
-| LED | 配置 | 含义 |
-| --- | --- | --- |
-| `sys_led` | `heartbeat` | 操作系统正在运行。 |
-| `user_led` | `eth1` 上的 `netdev`，模式 `link tx rx` | 蜂窝链路已连接，调制解调器传输数据时闪烁。 |
+## 发布类型
 
-GitHub Actions 每天检查上游更新，也会在 `main` 中构建配方变化时运行。每个 release 包含 `.img.gz`、`SHA256SUMS` 和记录精确提交的 `source-lock.json`。详情见 [BUILD.md](BUILD.md)。
+- **Hardware-verified stable**：已在真实 NanoPi NEO3 Plus 上确认启动、RJ45、FM350 注册、蜂窝互联网与重启。
+- **Candidate**：tag 以 `candidate-` 开头；CI 已完成编译与结构检查，但尚未证明真实硬件能够启动。
 
-不要把维护网段连接到不可信的以太网。请阅读 [SECURITY.md](../SECURITY.md)。本社区项目与 FriendlyELEC、FriendlyARM、Fibocom 或移动运营商无官方关系。
+自动 workflow 会验证源码锁、SHA-256、gzip 完整性和 SD 镜像基本结构，将结果发布为 prerelease candidate，并重新下载发布资产再次验证 checksum。只有独立的手动硬件验证 workflow 在全部物理测试确认后才能创建 stable，并附带 `HARDWARE_VALIDATION.md`。
+
+参见 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md) 与 [BUILD.md](BUILD.md)。
+
+## 安装
+
+1. 下载 `.img.gz`、`SHA256SUMS` 和 `source-lock.json`。
+2. 刷写前验证 SHA-256。
+3. 使用 Raspberry Pi Imager 或 balenaEtcher 直接写入压缩镜像。
+4. 为 FM350 适配板提供合适的独立供电，然后启动 NanoPi。
+
+RJ45 会提供 `192.168.77.100–149` DHCP、DNS 与蜂窝互联网。下游路由器 LAN 必须使用不同子网。
+
+额外 NAT hop 是有意设计，以优先保证 FM350 T700/RNDIS/XMM 路径稳定性。
+
+本项目为社区项目，与 FriendlyELEC、FriendlyARM、Fibocom、RatoNet 或移动运营商均无官方隶属关系。

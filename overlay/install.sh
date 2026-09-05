@@ -12,8 +12,9 @@ awk -f "$CURRPATH/patch-xmm-proto.awk" "$xmm_proto" >"$xmm_patched"
 install -m 0755 "$xmm_patched" "$xmm_proto"
 rm -f "$xmm_patched"
 
-# Credentials are injected only on the Actions runner or during a local build.
-# If no password hash is supplied, FriendlyWrt's upstream root password remains.
+# Credentials are injected only on a trusted local build. Public automated
+# images intentionally have no initial root password, matching OpenWrt's
+# first-login model instead of inheriting FriendlyWrt's public root/password.
 if [[ -s "$CURRPATH/root-password.hash" ]]; then
 	root_hash=$(<"$CURRPATH/root-password.hash")
 	case "$root_hash" in
@@ -24,6 +25,10 @@ if [[ -s "$CURRPATH/root-password.hash" ]]; then
 			;;
 	esac
 	sed -i "s|^root:[^:]*:|root:${root_hash}:|" "$ROOTFS_DIR/etc/shadow"
+else
+	# Deliberately clear any FriendlyWrt vendor default. LuCI will require the
+	# administrator to set a unique password during first-boot onboarding.
+	sed -i 's|^root:[^:]*:|root::|' "$ROOTFS_DIR/etc/shadow"
 fi
 
 if [[ -s "$CURRPATH/authorized_keys" ]]; then
@@ -41,3 +46,6 @@ chmod 0755 "$ROOTFS_DIR/usr/sbin/fm350-control"
 chmod 0755 "$ROOTFS_DIR/usr/sbin/fm350-radio"
 chmod 0755 "$ROOTFS_DIR/usr/sbin/fm350-sms"
 chmod 0755 "$ROOTFS_DIR/usr/sbin/fm350-status"
+chmod 0755 "$ROOTFS_DIR/usr/sbin/fm350-telemetry"
+chmod 0755 "$ROOTFS_DIR/usr/sbin/fm350-api-token"
+chmod 0755 "$ROOTFS_DIR/www/cgi-bin/fm350-telemetry"

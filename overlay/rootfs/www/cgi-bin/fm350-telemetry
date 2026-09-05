@@ -1,0 +1,25 @@
+#!/bin/sh
+
+printf 'Content-Type: application/json\r\n'
+printf 'Cache-Control: no-store\r\n'
+printf 'X-Content-Type-Options: nosniff\r\n'
+
+enabled=$(uci -q get fm350.api.enabled)
+expected=$(uci -q get fm350.api.token)
+provided=${HTTP_X_API_KEY:-}
+
+if [ "$enabled" != 1 ]; then
+	printf 'Status: 503 Service Unavailable\r\n\r\n'
+	printf '{"error":"telemetry_api_disabled"}\n'
+	exit 0
+fi
+
+if [ -z "$expected" ] || [ -z "$provided" ] || [ "$provided" != "$expected" ]; then
+	printf 'Status: 401 Unauthorized\r\n'
+	printf 'WWW-Authenticate: X-API-Key\r\n\r\n'
+	printf '{"error":"unauthorized"}\n'
+	exit 0
+fi
+
+printf '\r\n'
+exec /usr/sbin/fm350-telemetry

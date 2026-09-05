@@ -10,12 +10,27 @@ reply() {
 	json_dump
 }
 
+admin_password_set() {
+	root_hash=$(awk -F: '$1 == "root" { print $2; exit }' /etc/shadow 2>/dev/null)
+	case "$root_hash" in
+		''|'!'|'*') return 1 ;;
+		*) return 0 ;;
+	esac
+}
+
+require_onboarding() {
+	admin_password_set && return 0
+	reply 0 'Set a unique root password in LuCI System -> Administration before changing modem configuration'
+	exit 1
+}
+
 action=${1:-status}
 case "$action" in
 	status)
 		exec /usr/sbin/fm350-status
 		;;
 	connect)
+		require_onboarding
 		ifup cellular >/dev/null 2>&1 || {
 			reply 0 'Unable to start cellular interface'
 			exit 1
@@ -23,10 +38,12 @@ case "$action" in
 		reply 1 'Cellular connection started'
 		;;
 	disconnect)
+		require_onboarding
 		ifdown cellular >/dev/null 2>&1 || true
 		reply 1 'Cellular connection stopped'
 		;;
 	reconnect)
+		require_onboarding
 		ifdown cellular >/dev/null 2>&1 || true
 		sleep 2
 		ifup cellular >/dev/null 2>&1 || {
@@ -36,6 +53,7 @@ case "$action" in
 		reply 1 'Cellular connection restarted'
 		;;
 	autodetect)
+		require_onboarding
 		/usr/sbin/fm350-autoconfig --wait 30 >/dev/null 2>&1 || {
 			reply 0 'FM350 AT port was not detected'
 			exit 1
@@ -43,6 +61,7 @@ case "$action" in
 		reply 1 'FM350 AT port detected and saved'
 		;;
 	configure)
+		require_onboarding
 		apn=${2:-}
 		pdp=${3:-}
 		profile=${4:-}

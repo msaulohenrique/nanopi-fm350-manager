@@ -2,53 +2,60 @@
 
 [English](../README.md) · [Português (Brasil)](README.pt-BR.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md)
 
-Images FriendlyWrt reproductibles et prêtes à flasher pour le NanoPi NEO3 Plus avec modem 5G Fibocom FM350-GL. Le profil mobile utilise l’APN brésilien `surf.br` et chaque source est verrouillée par commit dans `source-lock.json`.
+Firmware FriendlyWrt reproductible pour NanoPi NEO3 Plus avec modem 5G Fibocom FM350-GL. Le profil mobile par défaut utilise `surf.br` et chaque source du build est verrouillée sur un commit exact dans `source-lock.json`.
 
-## Préconfiguration
+## Architecture
 
-- Modes USB FM350-GL `0e8d:7126` et `0e8d:7127`, avec détection automatique du port AT.
-- `xmm-modem` et `luci-proto-xmm` de [modemfeed](https://github.com/koshev-msk/modemfeed).
-- Connexion cellulaire IPv4 via `surf.br`, métrique 10 et route prioritaire.
-- L’interface cellulaire FM350 comme WAN Internet, avec masquerading IPv4.
-- L’unique RJ45 comme LAN DHCP pour le routeur connecté, passerelle `192.168.77.1/24`.
-- LuCI, SSH, DNS et transfert cellulaire disponibles sur le même RJ45.
-- Tableau multilingue **Réseau → FM350 Manager** avec état, configuration APN/SIM, SMS, analyse radio et commandes.
-- `sys_led` en battement système ; `user_led` pour le lien et le trafic RX/TX du FM350.
-- Accès administrateur root complet via LuCI et SSH sur l’interface de maintenance.
+Le FM350 est le WAN cellulaire. L'unique RJ45 du NanoPi fournit un LAN de maintenance/downstream DHCP/NAT sur `192.168.77.1/24`. Le bonding SRTLA/RatoNet reste géré par l'encodeur ou le routeur downstream ; le NanoPi reste une passerelle cellulaire autonome.
 
-## Télécharger et flasher
+## Premier démarrage sécurisé
 
-1. Téléchargez le dernier `.img.gz` et `SHA256SUMS` depuis [Releases](https://github.com/msaulohenrique/nanopi-fm350-manager/releases).
-2. Vérifiez la somme SHA-256.
-3. Flashez directement l’image compressée avec [Raspberry Pi Imager](https://www.raspberrypi.com/software/) ou balenaEtcher.
-4. Insérez la microSD, connectez le FM350-GL et démarrez le NanoPi. Le premier démarrage peut prendre plusieurs minutes.
+Les images publiques n'embarquent ni mot de passe administrateur partagé ni clé SSH personnelle. Si un build privé ne fournit pas `ROOT_PASSWORD_HASH`, le mot de passe fournisseur hérité est supprimé et le premier accès suit le modèle OpenWrt.
 
-La carte SIM doit être active et ne pas demander de code PIN. Sinon, configurez-le dans LuCI avant d’activer l’interface cellulaire.
+1. Connectez l'appareil uniquement à un réseau de maintenance de confiance.
+2. Ouvrez `https://192.168.77.1/`.
+3. Connectez-vous en `root` avec un mot de passe vide uniquement lors du premier accès.
+4. Définissez immédiatement un mot de passe fort et unique dans **System → Administration**.
+5. L'authentification SSH par mot de passe reste désactivée par défaut ; `AUTHORIZED_KEYS` est recommandé.
 
-## Connecter le routeur
+Voir [SECURITY.md](../SECURITY.md).
 
-| Connexion | Configuration du client | Adresse NanoPi | Résultat |
-| --- | --- | --- | --- |
-| Port WAN du routeur | DHCP/automatique | `192.168.77.1` | Reçoit `192.168.77.100–149`, DNS et Internet cellulaire |
-| Ordinateur de maintenance direct | DHCP/automatique, ou `192.168.77.2/24` statique | `192.168.77.1` | LuCI, SSH et Internet cellulaire sur le même câble |
+## Télémétrie
 
-Ouvrez `https://192.168.77.1/`. Le certificat local peut provoquer un avertissement initial du navigateur.
+Le système expose RSSI, RSRP, RSRQ et SINR NR lorsque le modem les fournit, ainsi que RAT, opérateur, TAC, Cell ID, bandes, IP et trafic.
 
-Connectez le RJ45 du NanoPi au port **WAN/Internet** du routeur et laissez ce port en DHCP. Le LAN du routeur doit utiliser un autre sous-réseau, par exemple `192.168.1.0/24`. Le bouton GPIO utilisateur (`BTN_1`) redémarre le système lorsqu’il est relâché ; le bouton **MASK** conserve sa fonction de récupération.
+API protégée par jeton :
 
-Sans `ROOT_PASSWORD_HASH`, l’image conserve les identifiants FriendlyWrt initiaux : utilisateur `root`, mot de passe `password`. Ils donnent l’administration complète via LuCI et SSH depuis le client de maintenance. Modifiez immédiatement cette valeur publique pour une installation permanente. `AUTHORIZED_KEYS` peut ajouter une clé SSH de secours.
+```text
+https://192.168.77.1/cgi-bin/fm350-telemetry
+```
 
-## Tableau du modem et LED
+Le jeton unique est géré dans **Network → FM350 Manager → Telemetry API** :
 
-Après connexion, ouvrez **Réseau → FM350 Manager**. Le tableau affiche la SIM, l'opérateur, la technologie, le RAT, le signal, le réseau et l'IP. Les analyses fournissent des graphiques de signal/trafic, les bandes/canaux/PCI/largeurs utilisés et toutes les bandes 3G/4G/5G prises en charge. Le formulaire gère APN, PDP, CID, PIN SIM et identifiants PAP/CHAP sans renvoyer les secrets enregistrés au navigateur. La zone SMS lit les mémoires ME/SM, décode UCS-2, envoie des textes standard de 160 octets maximum et les supprime.
+```bash
+curl -k -H 'X-API-Key: TOKEN' 'https://192.168.77.1/cgi-bin/fm350-telemetry'
+```
 
-L'interface garde visibles les actions courantes, l'APN, le signal, les graphiques et les SMS ; les bandes, le CID et les identifiants sont regroupés dans des volets avancés. Les commandes s'activent dynamiquement selon l'état.
+La réponse distingue `physical_transport: ethernet` de `upstream_type: cellular`. RatoNet peut ainsi conserver l'interface Ethernet réelle pour SRTLA tout en ajoutant RSRP/RSRQ/SINR et les informations modem. Voir [RATONET.md](RATONET.md).
 
-| LED | Configuration | Signification |
-| --- | --- | --- |
-| `sys_led` | `heartbeat` | Le système fonctionne. |
-| `user_led` | `netdev` sur `eth1`, modes `link tx rx` | Lien cellulaire et clignotement lors du trafic modem. |
+## Releases
 
-GitHub Actions vérifie les mises à jour chaque jour et lors des changements de recette sur `main`. Chaque release fournit `.img.gz`, `SHA256SUMS` et `source-lock.json`. Consultez [BUILD.md](BUILD.md).
+- **Hardware-verified stable** : validée physiquement sur NanoPi NEO3 Plus pour boot, RJ45, FM350, Internet et redémarrage.
+- **Candidate** : tag `candidate-*`, compilée et vérifiée structurellement par CI mais pas encore validée sur le matériel réel.
 
-N’exposez pas le réseau de maintenance à un segment Ethernet non fiable. Consultez [SECURITY.md](../SECURITY.md). Ce projet communautaire n’est affilié ni à FriendlyELEC, ni à FriendlyARM, ni à Fibocom, ni à l’opérateur mobile.
+Le workflow automatique vérifie les sources, le SHA-256, gzip et la structure de l'image, publie une prerelease candidate puis retélécharge les assets pour revérifier les checksums. Un workflow manuel distinct ne promeut la release stable qu'après confirmation de tous les tests physiques et ajoute `HARDWARE_VALIDATION.md`.
+
+Voir [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md) et [BUILD.md](BUILD.md).
+
+## Installation
+
+1. Téléchargez `.img.gz`, `SHA256SUMS` et `source-lock.json`.
+2. Vérifiez SHA-256.
+3. Flashez avec Raspberry Pi Imager ou balenaEtcher.
+4. Alimentez correctement l'adaptateur FM350 et démarrez le NanoPi.
+
+La RJ45 distribue DHCP `192.168.77.100–149`, DNS et Internet cellulaire. Le LAN du routeur downstream doit utiliser un autre sous-réseau.
+
+Le saut NAT supplémentaire est volontaire afin de privilégier la stabilité du chemin FM350 T700/RNDIS/XMM.
+
+Projet communautaire sans affiliation officielle avec FriendlyELEC, FriendlyARM, Fibocom, RatoNet ou un opérateur mobile.

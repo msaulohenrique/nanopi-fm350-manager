@@ -1,0 +1,82 @@
+#!/bin/sh
+
+# shellcheck disable=SC1091
+. /usr/share/libubox/jshn.sh
+
+new_token() {
+	dd if=/dev/urandom bs=24 count=1 2>/dev/null | od -An -tx1 | tr -d ' \n'
+}
+
+admin_password_set() {
+	root_hash=$(awk -F: '$1 == "root" { print $2; exit }' /etc/shadow 2>/dev/null)
+	case "$root_hash" in
+		''|'!'|'*') return 1 ;;
+		*) return 0 ;;
+	esac
+}
+
+ensure_config() {
+	uci -q get fm350.api >/dev/null 2>&1 || uci set fm350.api=api
+	# External telemetry is opt-in after first-boot password setup.
+	uci -q get fm350.api.enabled >/dev/null 2>&1 || uci set fm350.api.enabled='0'
+	if ! token=$(uci -q get fm350.api.token) || [ -z "$token" ]; then
+		token=$(new_token)
+		uci set fm350.api.token="$token"
+	fi
+	uci commit fm350
+}
+
+reply() {
+	enabled=$(uci -q get fm350.api.enabled)
+	token=$(uci -q get fm350.api.token)
+	json_init
+	if [ "$enabled" = 1 ]; then
+		json_add_boolean enabled 1
+	else
+		json_add_boolean enabled 0
+	fi
+	json_add_string token "${token:-}"
+	json_add_string endpoint 'https://192.168.77.1/cgi-bin/fm350-telemetry'
+	json_dump
+}
+
+require_onboarding() {
+	admin_password_set && return 0
+	json_init
+	json_add_boolean ok 0
+	json_add_string message 'Set a unique root password in LuCI before enabling or rotating the external telemetry API'
+	json_dump
+	exit 1
+}
+
+action=${1:-show}
+case "$action" in
+	ensure|show)
+		ensure_config
+		reply
+		;;
+	rotate)
+		ensure_config
+		require_onboarding
+		uci set fm350.api.token="$(new_token)"
+		uci commit fm350
+		reply
+		;;
+	enable)
+		ensure_config
+		require_onboarding
+		uci set fm350.api.enabled='1'
+		uci commit fm350
+		reply
+		;;
+	disable)
+		ensure_config
+		uci set fm350.api.enabled='0'
+		uci commit fm350
+		reply
+		;;
+	*)
+		echo 'Usage: fm350-api-token [show|rotate|enable|disable|ensure]' >&2
+		exit 2
+		;;
+esac
