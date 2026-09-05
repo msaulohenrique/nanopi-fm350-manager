@@ -83,6 +83,13 @@ jobs:
             echo "The source release is not marked as a candidate/prerelease" >&2
             exit 1
           }
+          candidate_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$CANDIDATE_TAG" --jq .object.sha)
+          [[ "$candidate_commit" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "Unable to resolve candidate Git commit" >&2
+            exit 1
+          }
+          echo "CANDIDATE_COMMIT=$candidate_commit" >>"$GITHUB_ENV"
+
           mkdir candidate
           gh release download "$CANDIDATE_TAG" --repo "$GITHUB_REPOSITORY" --dir candidate
           test -f candidate/SHA256SUMS
@@ -107,6 +114,7 @@ jobs:
           # Hardware validation
 
           - Candidate: \`$CANDIDATE_TAG\`
+          - Candidate Git commit: \`$CANDIDATE_COMMIT\`
           - Tester: $TESTER
           - Validated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
           - Hardware: NanoPi NEO3 Plus + Fibocom FM350-GL
@@ -139,18 +147,22 @@ jobs:
           fi
           candidate_body=$(gh release view "$CANDIDATE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
           {
-            printf '%s\n\n' "$candidate_body"
-            echo '---'
-            echo
             echo '## Hardware verified / Validada em hardware'
             echo
-            echo 'This release was promoted only after a physical NanoPi NEO3 Plus test confirmed boot, RJ45, FM350 registration, cellular Internet and reboot. See `HARDWARE_VALIDATION.md` in the release assets.'
+            echo 'This release contains the exact candidate image that passed a physical NanoPi NEO3 Plus test for boot, RJ45, FM350 registration, cellular Internet and reboot. See `HARDWARE_VALIDATION.md` in the assets.'
             echo
-            echo 'Esta release só foi promovida após teste físico no NanoPi NEO3 Plus confirmar boot, RJ45, registro do FM350, Internet celular e reinicialização. Consulte `HARDWARE_VALIDATION.md` nos assets.'
+            echo 'Esta release contém exatamente a imagem candidata que passou por teste físico no NanoPi NEO3 Plus para boot, RJ45, registro do FM350, Internet celular e reinicialização. Consulte `HARDWARE_VALIDATION.md` nos assets.'
+            echo
+            echo '---'
+            echo
+            echo '## Candidate build provenance'
+            echo
+            printf '%s\n' "$candidate_body"
           } >candidate/stable-notes.md
 
           image=$(cat candidate/image-name.txt)
           gh release create "$stable_tag" --repo "$GITHUB_REPOSITORY" --latest \
+            --target "$CANDIDATE_COMMIT" \
             --title "Hardware verified · ${stable_tag#friendlywrt-}" \
             --notes-file candidate/stable-notes.md \
             "candidate/$image" \
@@ -162,5 +174,6 @@ jobs:
 
           echo "### Stable release promoted" >>"$GITHUB_STEP_SUMMARY"
           echo "- Candidate: \`$CANDIDATE_TAG\`" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Candidate commit: \`$CANDIDATE_COMMIT\`" >>"$GITHUB_STEP_SUMMARY"
           echo "- Stable: \`$stable_tag\`" >>"$GITHUB_STEP_SUMMARY"
           echo "- Physical validation: boot + RJ45 + FM350 + Internet + reboot" >>"$GITHUB_STEP_SUMMARY"
