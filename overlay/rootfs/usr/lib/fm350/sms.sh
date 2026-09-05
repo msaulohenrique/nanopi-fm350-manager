@@ -2,9 +2,9 @@
 
 # The current FM350 send path uses AT+CSCS="GSM" in text mode. Until a
 # hardware-validated UCS-2/PDU implementation exists, accept only the printable
-# ASCII subset that maps directly to the GSM 7-bit default alphabet. Reject the
-# GSM extension-table characters too because they consume escape septets and
-# would make the simple 160-character limit inaccurate.
+# ASCII subset whose byte values map identically to the GSM 7-bit default
+# alphabet. Reject extension-table characters too because they consume escape
+# septets and would make the simple 160-character limit inaccurate.
 fm350_sms_text_is_basic() {
 	text=$1
 	[ -n "$text" ] || return 1
@@ -20,10 +20,10 @@ fm350_sms_text_is_basic() {
 		return 1
 	fi
 
-	# Printable ASCII characters not present directly in the GSM default table.
-	# Some are available through the GSM extension table, but deliberately reject
-	# them until septet-aware length accounting is implemented.
+	# Printable ASCII bytes whose GSM default-alphabet positions encode another
+	# glyph, plus extension-table characters that require an ESC septet.
 	case "$text" in
+		*'@'*|*'$'*|*'_'*) return 1 ;;
 		*'['*|*']'*|*'^'*|*'`'*|*'{'*|*'|'*|*'}'*|*'~'*) return 1 ;;
 		*\\*) return 1 ;;
 	esac
