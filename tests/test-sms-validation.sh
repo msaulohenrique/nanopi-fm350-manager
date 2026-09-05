@@ -26,7 +26,7 @@ expect_fail "$(printf '%161s' '' | tr ' ' A)"
 expect_fail 'ação com acento'
 expect_fail 'emoji 🚀'
 expect_fail 'extension [brackets]'
-expect_fail 'backslash \'
+expect_fail "backslash \\"
 expect_fail 'caret ^'
 expect_fail 'tilde ~'
 expect_fail $'line\nbreak'
