@@ -2,8 +2,9 @@
 
 # Serialize netifd/XMM AT sessions with the same lock used by the FM350 LuCI
 # helpers. Environment variables such as DEVPORT, CID, APN and PINCODE are
-# inherited by gcom unchanged.
-lock_dir=/tmp/fm350-at.lock
+# inherited by gcom unchanged. FM350_AT_LOCK_DIR is intended for isolated tests;
+# production callers use the shared /tmp/fm350-at.lock default.
+lock_dir=${FM350_AT_LOCK_DIR:-/tmp/fm350-at.lock}
 max_wait=${FM350_AT_LOCK_WAIT:-30}
 waited=0
 lock_held=0
