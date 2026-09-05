@@ -100,8 +100,8 @@ if grep -Eq "set dropbear\..*(PasswordAuth|RootPasswordAuth)='on'" \
 	echo "Public images must not enable SSH password authentication" >&2
 	exit 1
 fi
-if grep -Eq 'root[^[:alnum:]]*/?password|password[^[:alnum:]]*root' README.md SECURITY.md docs/*.md 2>/dev/null; then
-	echo "Documentation must not advertise a public root/password credential" >&2
+if grep -R -nE 'root[[:space:]]*/[[:space:]]*password|root:[[:space:]]*password' README.md SECURITY.md docs 2>/dev/null; then
+	echo "Documentation must not advertise the legacy shared root/password credential" >&2
 	exit 1
 fi
 # Assert literal build-script paths, not runtime values.
