@@ -6,23 +6,26 @@
 			"file": {
 				"/usr/sbin/fm350-control status": [ "exec" ],
 				"/usr/sbin/fm350-radio": [ "exec" ],
+				"/usr/sbin/fm350-telemetry": [ "exec" ],
+				"/usr/sbin/fm350-api-token show": [ "exec" ],
 				"/usr/sbin/fm350-sms list *": [ "exec" ]
 			},
 			"ubus": {
 				"file": [ "exec" ]
 			},
-			"uci": [ "network" ]
+			"uci": [ "network", "fm350" ]
 		},
 		"write": {
 			"cgi-io": [ "exec" ],
 			"file": {
 				"/usr/sbin/fm350-control *": [ "exec" ],
+				"/usr/sbin/fm350-api-token *": [ "exec" ],
 				"/usr/sbin/fm350-sms *": [ "exec" ]
 			},
 			"ubus": {
 				"file": [ "exec" ]
 			},
-			"uci": [ "network" ]
+			"uci": [ "network", "fm350" ]
 		}
 	}
 }
