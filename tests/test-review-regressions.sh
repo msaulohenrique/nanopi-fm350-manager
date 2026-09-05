@@ -12,7 +12,7 @@ status=overlay/rootfs/usr/sbin/fm350-status
 release=.github/workflows/release.yml
 
 # PR #1: configure the actual Dropbear server and accept unpadded USB hotplug VID.
-grep -Fq 'while uci -q delete dropbear.@dropbear[0]' "$uci_defaults"
+grep -Fq "while uci -q delete 'dropbear.@dropbear[0]'" "$uci_defaults"
 grep -Fq "set dropbear.main=dropbear" "$uci_defaults"
 grep -Fq "set dropbear.main.PasswordAuth='off'" "$uci_defaults"
 grep -Fq "set dropbear.main.RootPasswordAuth='off'" "$uci_defaults"
