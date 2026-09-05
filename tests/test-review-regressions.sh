@@ -47,6 +47,8 @@ grep -Fq "fm350_sms_text_is_basic \"\$text\"" "$sms"
 grep -Fq '/usr/sbin/fm350-gcom-locked' "$xmm_patch"
 grep -Fq 'netifd_gcom_replacements != 6' "$xmm_patch"
 grep -Fq 'FM350_AT_LOCK_FILE:-/var/lock/fm350-at.lock' "$gcom_wrapper"
+# Assert literal shell variables in the wrapper source.
+# shellcheck disable=SC2016
 grep -Fq '/usr/bin/flock -x -w "$max_wait" -F "$lock_file" gcom "$@"' "$gcom_wrapper"
 grep -Fq 'CONFIG_PACKAGE_flock=y' config/07-fm350
 grep -Fq "*'@'*|*'\$'*|*'_'*) return 1 ;;" "$sms_lib"
