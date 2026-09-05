@@ -9,6 +9,9 @@ uci_defaults=overlay/rootfs/etc/uci-defaults/99-nanopi-neo3-plus-fm350
 hotplug=overlay/rootfs/etc/hotplug.d/usb/95-fm350-autoconfig
 api_token=overlay/rootfs/usr/sbin/fm350-api-token
 status=overlay/rootfs/usr/sbin/fm350-status
+sms_lib=overlay/rootfs/usr/lib/fm350/sms.sh
+xmm_patch=overlay/patch-xmm-proto.awk
+gcom_wrapper=overlay/rootfs/usr/sbin/fm350-gcom-locked
 release=.github/workflows/release.yml
 
 # PR #1: configure the actual Dropbear server and accept unpadded USB hotplug VID.
@@ -29,8 +32,17 @@ fi
 # PR #5: status polling shares the AT lock; outbound text is validated before gcom.
 grep -Fq 'at_lock_dir=/tmp/fm350-at.lock' "$status"
 grep -Fq "mkdir \"\$at_lock_dir\"" "$status"
+grep -Fq '! pidof gcom >/dev/null 2>&1' "$status"
 grep -Fq '. /usr/lib/fm350/sms.sh' overlay/rootfs/usr/sbin/fm350-sms
 grep -Fq "fm350_sms_text_is_basic \"\$text\"" overlay/rootfs/usr/sbin/fm350-sms
+
+# Post-merge PR #9 review: netifd/XMM must participate in the same AT lock and
+# the remaining non-identity GSM byte positions must be rejected.
+grep -Fq '/usr/sbin/fm350-gcom-locked' "$xmm_patch"
+grep -Fq 'netifd_gcom_replacements != 6' "$xmm_patch"
+grep -Fq 'lock_dir=/tmp/fm350-at.lock' "$gcom_wrapper"
+grep -Fq 'gcom "$@"' "$gcom_wrapper"
+grep -Fq "*'@'*|*'\$'*|*'_'*) return 1 ;;" "$sms_lib"
 
 # PR #6: UCI backing file exists before fm350.api and host validator is invoked safely.
 grep -Fq '[ -e /etc/config/fm350 ] || : >/etc/config/fm350 || return 1' "$api_token"
@@ -39,6 +51,7 @@ grep -Fq "bash \"\$SCRIPT_DIR/validate-image-artifacts.sh\"" scripts/build-image
 # The target-rootfs executables flagged during the audit are made executable at image build time.
 for target in \
 	usr/sbin/fm350-api-token \
+	usr/sbin/fm350-gcom-locked \
 	usr/sbin/fm350-telemetry \
 	www/cgi-bin/fm350-telemetry; do
 	grep -Fq "chmod 0755 \"\$ROOTFS_DIR/$target\"" overlay/install.sh || {
