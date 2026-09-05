@@ -19,7 +19,7 @@ grep -Fq "set dropbear.main.RootPasswordAuth='off'" "$uci_defaults"
 grep -Fq 'e8d/7126/*|e8d/7127/*|0e8d/7126/*|0e8d/7127/*' "$hotplug"
 
 # PR #4: failure tracker lookup must select an exact issue title.
-exact_count=$(grep -F 'select(.title == "Automated FriendlyWrt candidate failed")' "$release" | wc -l)
+exact_count=$(grep -Fc 'select(.title == "Automated FriendlyWrt candidate failed")' "$release" || true)
 [[ "$exact_count" -ge 2 ]]
 if grep -Fq -- "--json number --jq '.[0].number // empty'" "$release"; then
 	echo 'Release workflow still uses first fuzzy issue-search result' >&2
@@ -28,13 +28,13 @@ fi
 
 # PR #5: status polling shares the AT lock; outbound text is validated before gcom.
 grep -Fq 'at_lock_dir=/tmp/fm350-at.lock' "$status"
-grep -Fq 'mkdir "$at_lock_dir"' "$status"
+grep -Fq "mkdir \"\$at_lock_dir\"" "$status"
 grep -Fq '. /usr/lib/fm350/sms.sh' overlay/rootfs/usr/sbin/fm350-sms
-grep -Fq 'fm350_sms_text_is_basic "$text"' overlay/rootfs/usr/sbin/fm350-sms
+grep -Fq "fm350_sms_text_is_basic \"\$text\"" overlay/rootfs/usr/sbin/fm350-sms
 
 # PR #6: UCI backing file exists before fm350.api and host validator is invoked safely.
 grep -Fq '[ -e /etc/config/fm350 ] || : >/etc/config/fm350 || return 1' "$api_token"
-grep -Fq 'bash "$SCRIPT_DIR/validate-image-artifacts.sh"' scripts/build-image.sh
+grep -Fq "bash \"\$SCRIPT_DIR/validate-image-artifacts.sh\"" scripts/build-image.sh
 
 # The target-rootfs executables flagged during the audit are made executable at image build time.
 for target in \
