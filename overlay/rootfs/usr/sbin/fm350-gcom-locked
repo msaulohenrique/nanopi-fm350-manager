@@ -1,37 +1,23 @@
 #!/bin/sh
 
-# Serialize netifd/XMM AT sessions with the same lock used by the FM350 LuCI
-# helpers. Environment variables such as DEVPORT, CID, APN and PINCODE are
-# inherited by gcom unchanged. FM350_AT_LOCK_DIR is intended for isolated tests;
-# production callers use the shared /tmp/fm350-at.lock default.
-lock_dir=${FM350_AT_LOCK_DIR:-/tmp/fm350-at.lock}
+# Serialize every FM350 AT session with a kernel-backed advisory lock.
+# util-linux flock -F executes gcom without forking, so the process holding the
+# lock is also the gcom process. The kernel therefore releases the lock even if
+# the process is terminated with SIGKILL. The lock file itself may remain, but
+# an unlocked file is immediately reusable and cannot wedge future sessions.
+lock_file=${FM350_AT_LOCK_FILE:-/var/lock/fm350-at.lock}
 max_wait=${FM350_AT_LOCK_WAIT:-30}
-waited=0
-lock_held=0
 
-cleanup() {
-	if [ "$lock_held" = 1 ]; then
-		rmdir "$lock_dir" 2>/dev/null || true
-		lock_held=0
-	fi
+[ -x /usr/bin/flock ] || {
+	echo 'flock is required for FM350 AT serialization' >&2
+	exit 1
 }
-trap cleanup 0
-trap 'cleanup; exit 1' 1 2 15
 
-while ! mkdir "$lock_dir" 2>/dev/null; do
-	waited=$((waited + 1))
-	if [ "$waited" -ge "$max_wait" ]; then
-		echo 'Timed out waiting for the FM350 AT port lock' >&2
-		# xmm.sh treats rc=1 as an AT-port/probe failure. Reuse that semantic
-		# instead of returning an unhandled custom status that could let setup
-		# continue after the final probe attempt.
+case "$max_wait" in
+	''|*[!0-9]*)
+		echo 'FM350_AT_LOCK_WAIT must be a non-negative integer' >&2
 		exit 1
-	fi
-	sleep 1
-done
-lock_held=1
+		;;
+esac
 
-gcom "$@"
-rc=$?
-cleanup
-exit "$rc"
+exec /usr/bin/flock -x -w "$max_wait" -F "$lock_file" gcom "$@"
