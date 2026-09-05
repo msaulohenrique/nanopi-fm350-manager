@@ -53,19 +53,16 @@ bandwidth_label() {
 
 device=$(uci -q get network.cellular.device)
 [ -c "$device" ] || fail 'FM350 AT port is not available'
-lock_dir=/tmp/fm350-at.lock
-mkdir "$lock_dir" 2>/dev/null || fail 'The modem is busy; try again shortly'
 temp_file=
 cleanup() {
 	if [ -n "$temp_file" ]; then
 		rm -f "$temp_file"
 	fi
-	rmdir "$lock_dir" 2>/dev/null
 }
 trap cleanup 0 1 2 15
 temp_file=$(mktemp /tmp/fm350-radio.XXXXXX) || fail 'Unable to create radio workspace'
 
-output=$(timeout 20 gcom -d "$device" -s /etc/gcom/fm350-radio.gcom 2>/dev/null) || fail 'Unable to query radio information'
+output=$(FM350_AT_LOCK_WAIT=2 timeout 20 /usr/sbin/fm350-gcom-locked -d "$device" -s /etc/gcom/fm350-radio.gcom 2>/dev/null) || fail 'Unable to query radio information or the modem is busy'
 output=$(printf '%s' "$output" | tr -d '\r')
 erat=$(printf '%s\n' "$output" | sed -n 's/^+ERAT: *\([^,]*\).*/\1/p' | head -n1)
 gtact_read=$(printf '%s\n' "$output" | grep '^+GTACT:' | sed -n '1p')
