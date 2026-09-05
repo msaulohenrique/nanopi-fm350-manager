@@ -2,6 +2,14 @@
 
 # The FM350 is the WAN. The only RJ45 serves the downstream router and also
 # provides a stable maintenance address.
+
+# FriendlyWrt/OpenWrt commonly ships an anonymous @dropbear[0] section. Replace
+# every inherited Dropbear section with one explicit maintenance-only section so
+# the security options below always configure the server that actually runs.
+[ -e /etc/config/dropbear ] || : >/etc/config/dropbear
+while uci -q delete 'dropbear.@dropbear[0]' >/dev/null 2>&1; do :; done
+uci -q delete dropbear.main >/dev/null 2>&1 || true
+
 uci -q batch <<'EOF'
 delete network.wan
 delete network.wan6
@@ -41,6 +49,7 @@ set dhcp.maintenance.ndp='disabled'
 
 # Public images never enable root password authentication over SSH. Key-based
 # SSH remains available when AUTHORIZED_KEYS is injected in a trusted build.
+set dropbear.main=dropbear
 set dropbear.main.PasswordAuth='off'
 set dropbear.main.RootPasswordAuth='off'
 set dropbear.main.Interface='maintenance'

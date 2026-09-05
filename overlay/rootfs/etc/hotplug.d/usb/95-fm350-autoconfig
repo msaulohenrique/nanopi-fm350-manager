@@ -2,8 +2,11 @@
 
 [ "$ACTION" = "add" ] || exit 0
 
+# OpenWrt hotplug usually renders USB hexadecimal components without leading
+# zeroes (e8d/7126/...), while some environments expose the padded 0e8d form.
+# Accept both so reconnecting the modem always refreshes the detected AT port.
 case "${PRODUCT:-}" in
-	0e8d/7126/*|0e8d/7127/*)
+	e8d/7126/*|e8d/7127/*|0e8d/7126/*|0e8d/7127/*)
 		(
 			sleep 3
 			/usr/sbin/fm350-autoconfig --wait 30

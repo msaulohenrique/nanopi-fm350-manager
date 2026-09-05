@@ -7,6 +7,14 @@ new_token() {
 	dd if=/dev/urandom bs=24 count=1 2>/dev/null | od -An -tx1 | tr -d ' \n'
 }
 
+fail() {
+	json_init
+	json_add_boolean ok 0
+	json_add_string message "$1"
+	json_dump
+	exit 1
+}
+
 admin_password_set() {
 	root_hash=$(awk -F: '$1 == "root" { print $2; exit }' /etc/shadow 2>/dev/null)
 	case "$root_hash" in
@@ -16,14 +24,20 @@ admin_password_set() {
 }
 
 ensure_config() {
-	uci -q get fm350.api >/dev/null 2>&1 || uci set fm350.api=api
+	# UCI cannot create fm350.api until the package has a backing config file.
+	# Fresh public images intentionally start without /etc/config/fm350.
+	[ -d /etc/config ] || mkdir -p /etc/config || return 1
+	[ -e /etc/config/fm350 ] || : >/etc/config/fm350 || return 1
+
+	uci -q get fm350.api >/dev/null 2>&1 || uci set fm350.api=api || return 1
 	# External telemetry is opt-in after first-boot password setup.
-	uci -q get fm350.api.enabled >/dev/null 2>&1 || uci set fm350.api.enabled='0'
+	uci -q get fm350.api.enabled >/dev/null 2>&1 || uci set fm350.api.enabled='0' || return 1
 	if ! token=$(uci -q get fm350.api.token) || [ -z "$token" ]; then
 		token=$(new_token)
-		uci set fm350.api.token="$token"
+		[ -n "$token" ] || return 1
+		uci set fm350.api.token="$token" || return 1
 	fi
-	uci commit fm350
+	uci commit fm350 || return 1
 }
 
 reply() {
@@ -52,27 +66,27 @@ require_onboarding() {
 action=${1:-show}
 case "$action" in
 	ensure|show)
-		ensure_config
+		ensure_config || fail 'Unable to initialize FM350 telemetry API configuration'
 		reply
 		;;
 	rotate)
-		ensure_config
+		ensure_config || fail 'Unable to initialize FM350 telemetry API configuration'
 		require_onboarding
-		uci set fm350.api.token="$(new_token)"
-		uci commit fm350
+		uci set fm350.api.token="$(new_token)" || fail 'Unable to rotate telemetry API token'
+		uci commit fm350 || fail 'Unable to save telemetry API token'
 		reply
 		;;
 	enable)
-		ensure_config
+		ensure_config || fail 'Unable to initialize FM350 telemetry API configuration'
 		require_onboarding
-		uci set fm350.api.enabled='1'
-		uci commit fm350
+		uci set fm350.api.enabled='1' || fail 'Unable to enable telemetry API'
+		uci commit fm350 || fail 'Unable to save telemetry API configuration'
 		reply
 		;;
 	disable)
-		ensure_config
-		uci set fm350.api.enabled='0'
-		uci commit fm350
+		ensure_config || fail 'Unable to initialize FM350 telemetry API configuration'
+		uci set fm350.api.enabled='0' || fail 'Unable to disable telemetry API'
+		uci commit fm350 || fail 'Unable to save telemetry API configuration'
 		reply
 		;;
 	*)
