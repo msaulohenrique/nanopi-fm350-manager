@@ -1,6 +1,6 @@
 # NanoPi NEO3 Plus · FriendlyWrt + Fibocom FM350-GL
 
-[English](../README.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md)
+[English](../README.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Índice da documentação](README.md)
 
 Firmware FriendlyWrt reproduzível para o NanoPi NEO3 Plus com modem 5G Fibocom FM350-GL. O perfil móvel padrão usa a APN brasileira `surf.br`, e cada fonte do build fica fixada por commit em `source-lock.json`.
 
@@ -38,6 +38,8 @@ Existem duas classes de release:
 
 - **Stable / hardware-verified** — testada fisicamente no NanoPi NEO3 Plus para boot, RJ45, registro do FM350, Internet celular e reinicialização. É a recomendada para uso permanente.
 - **Candidate** — tag iniciada por `candidate-`; compilada e verificada estruturalmente pelo CI, mas ainda sem comprovação de boot no hardware físico.
+
+Releases automáticas anteriores a essa política e tags legadas duplicadas ficam documentadas no [histórico de releases](RELEASE_HISTORY.md), em vez de permanecerem na lista ativa de Releases/Tags.
 
 Para instalar:
 
@@ -143,7 +145,7 @@ Um segundo workflow só cria release estável quando o teste físico confirma ob
 
 Os assets da candidate são baixados e verificados novamente, e a stable recebe um registro `HARDWARE_VALIDATION.md` com testador, data, checksums e observações.
 
-Veja [BUILD.md](BUILD.md) e [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md).
+Veja [BUILD.md](BUILD.md), [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md) e o [índice da documentação](README.md).
 
 ## Builds privados
 

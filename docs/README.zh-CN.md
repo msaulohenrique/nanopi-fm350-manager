@@ -1,6 +1,6 @@
 # NanoPi NEO3 Plus · FriendlyWrt + Fibocom FM350-GL
 
-[English](../README.md) · [Português (Brasil)](README.pt-BR.md) · [Español](README.es.md) · [Français](README.fr.md)
+[English](../README.md) · [Português (Brasil)](README.pt-BR.md) · [Español](README.es.md) · [Français](README.fr.md) · [Documentation index](README.md)
 
 这是面向 NanoPi NEO3 Plus 与 Fibocom FM350-GL 5G 模组的可复现 FriendlyWrt 固件。默认移动网络 APN 为 `surf.br`，所有上游源码都固定到 `source-lock.json` 中记录的精确 commit。
 
@@ -43,9 +43,11 @@ curl -k -H 'X-API-Key: TOKEN' 'https://192.168.77.1/cgi-bin/fm350-telemetry'
 - **Hardware-verified stable**：已在真实 NanoPi NEO3 Plus 上确认启动、RJ45、FM350 注册、蜂窝互联网与重启。
 - **Candidate**：tag 以 `candidate-` 开头；CI 已完成编译与结构检查，但尚未证明真实硬件能够启动。
 
+早于当前发布策略的自动 releases 以及重复的旧 tags 会记录在 [RELEASE_HISTORY.md](RELEASE_HISTORY.md) 中，而不会继续保留在活动的 Releases/Tags 列表中。
+
 自动 workflow 会验证源码锁、SHA-256、gzip 完整性和 SD 镜像基本结构，将结果发布为 prerelease candidate，并重新下载发布资产再次验证 checksum。只有独立的手动硬件验证 workflow 在全部物理测试确认后才能创建 stable，并附带 `HARDWARE_VALIDATION.md`。
 
-参见 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md) 与 [BUILD.md](BUILD.md)。
+参见 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md)、[BUILD.md](BUILD.md) 与 [documentation index](README.md)。
 
 ## 安装
 

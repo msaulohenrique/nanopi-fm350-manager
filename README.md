@@ -1,6 +1,6 @@
 # NanoPi NEO3 Plus · FriendlyWrt + Fibocom FM350-GL
 
-[Português (Brasil)](docs/README.pt-BR.md) · [Español](docs/README.es.md) · [简体中文](docs/README.zh-CN.md) · [Français](docs/README.fr.md)
+[Português (Brasil)](docs/README.pt-BR.md) · [Español](docs/README.es.md) · [简体中文](docs/README.zh-CN.md) · [Français](docs/README.fr.md) · [Documentation index](docs/README.md)
 
 [![Validate](https://github.com/msaulohenrique/nanopi-fm350-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/msaulohenrique/nanopi-fm350-manager/actions/workflows/ci.yml)
 [![Build candidate](https://github.com/msaulohenrique/nanopi-fm350-manager/actions/workflows/release.yml/badge.svg)](https://github.com/msaulohenrique/nanopi-fm350-manager/actions/workflows/release.yml)
@@ -41,6 +41,8 @@ There are two release classes:
 
 - **Hardware-verified stable** — physically validated on a NanoPi NEO3 Plus for boot, RJ45, FM350 registration, cellular Internet and reboot. Prefer this for permanent deployments.
 - **Candidate** — tag starts with `candidate-`; built and structurally checked by CI but not yet proven to boot on physical hardware.
+
+Pre-policy automated releases and duplicate legacy tags are archived in [release history](docs/RELEASE_HISTORY.md) instead of being kept in the active Releases/Tags listings.
 
 For either class:
 
@@ -148,7 +150,7 @@ Stable promotion is a separate manual workflow. It requires explicit confirmatio
 
 The exact candidate assets are re-downloaded and checksum-verified before the stable release is created. The workflow also emits a hardware validation record as a release asset.
 
-See [build details](docs/BUILD.md) and [hardware validation](docs/HARDWARE_VALIDATION.md).
+See [build details](docs/BUILD.md), [hardware validation](docs/HARDWARE_VALIDATION.md) and the [documentation index](docs/README.md).
 
 ## Build customization
 
