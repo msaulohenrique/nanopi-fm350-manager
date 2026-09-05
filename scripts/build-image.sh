@@ -46,7 +46,9 @@ sha256sum "$raw_image" | \
 	awk -v name="$(basename "$raw_image")" '{print $1 "  " name}' \
 	>"$artifact_dir/RAW_IMAGE_SHA256"
 
-"$SCRIPT_DIR/validate-image-artifacts.sh" \
+# Invoke through Bash so the host-side validator does not depend on its Git
+# executable bit. GitHub's contents API stores this helper as mode 100644.
+bash "$SCRIPT_DIR/validate-image-artifacts.sh" \
 	"$raw_image" "$gzip_image" "$artifact_dir/SHA256SUMS"
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
