@@ -13,8 +13,9 @@ trap 'rm -rf "$workdir"' EXIT
 
 cat >"$workdir/gcom" <<'EOF'
 #!/bin/sh
-sleep "${FAKE_GCOM_SLEEP:-0}"
-exit "${FAKE_GCOM_RC:-0}"
+# Model gcom as one long-lived executable process rather than a shell retaining
+# a child: exec keeps the same PID and inherited flock descriptor on sleep.
+exec sleep "${FAKE_GCOM_SLEEP:-0}"
 EOF
 chmod +x "$workdir/gcom"
 lock_file="$workdir/fm350-at.lock"
