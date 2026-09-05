@@ -133,7 +133,7 @@ jobs:
 
           $NOTES
           EOF
-          sha256sum candidate/HARDWARE_VALIDATION.md >candidate/HARDWARE_VALIDATION_SHA256
+          (cd candidate && sha256sum HARDWARE_VALIDATION.md >HARDWARE_VALIDATION_SHA256)
 
       - name: Publish stable hardware-verified release
         env:
