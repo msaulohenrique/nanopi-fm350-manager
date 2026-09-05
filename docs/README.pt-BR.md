@@ -2,61 +2,160 @@
 
 [English](../README.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md)
 
-Imagens reproduzíveis e prontas para gravar do FriendlyWrt para o NanoPi NEO3 Plus com modem 5G Fibocom FM350-GL. O perfil móvel padrão usa a APN brasileira `surf.br`, e cada fonte do build fica fixada por commit em `source-lock.json`.
+Firmware FriendlyWrt reproduzível para o NanoPi NEO3 Plus com modem 5G Fibocom FM350-GL. O perfil móvel padrão usa a APN brasileira `surf.br`, e cada fonte do build fica fixada por commit em `source-lock.json`.
+
+O NanoPi funciona propositalmente como um **gateway celular independente**: o FM350 é a WAN de Internet e a única RJ45 fornece uma rede roteada DHCP/NAT para manutenção e para o roteador/encoder conectado. Bonding de múltiplos links, como RatoNet/SRTLA, continua no equipamento downstream.
 
 ## O que já vem configurado
 
-- Modos USB `0e8d:7126` e `0e8d:7127` do FM350-GL, com detecção automática da porta AT.
-- Pacotes `xmm-modem` e `luci-proto-xmm` do [modemfeed](https://github.com/koshev-msk/modemfeed).
-- Conexão celular IPv4 pela APN `surf.br`, métrica 10 e prioridade principal.
-- A interface celular FM350 como WAN de internet, com mascaramento IPv4.
-- A única RJ45 como LAN DHCP para o roteador conectado, gateway `192.168.77.1/24`.
-- LuCI, SSH, DNS e saída celular disponíveis pela mesma RJ45.
-- Painel multilíngue **Rede → FM350 Manager** com status, APN/SIM completo, SMS, análises de rádio e controles da conexão.
-- `sys_led` como heartbeat; `user_led` indicando link e tráfego RX/TX do FM350.
-- Acesso administrativo completo de root pelo LuCI e SSH na interface de manutenção.
+- Modos USB `0e8d:7126` e `0e8d:7127` do FM350-GL, com autodetecção da porta AT.
+- `xmm-modem` e `luci-proto-xmm` do modemfeed.
+- Conexão celular IPv4 pela APN `surf.br`, métrica 10.
+- FM350 como WAN com mascaramento IPv4.
+- RJ45 como LAN/manutenção DHCP em `192.168.77.1/24`.
+- LuCI, DNS e encaminhamento celular pela mesma RJ45.
+- Painel **Rede → FM350 Manager** com APN/SIM, SMS, bandas, tráfego e rádio.
+- Telemetria LTE/NR explícita: RSSI, RSRP, RSRQ e SINR NR quando disponível, além de TAC, Cell ID, RAT, operadora e bandas.
+- API JSON de telemetria protegida por token para RatoNet e outros sistemas.
+- `sys_led` como heartbeat e `user_led` para link/tráfego do FM350.
+- Primeiro boot sem uma senha administrativa pública compartilhada.
 
-## Baixar e gravar
+## Primeiro boot seguro
 
-1. Baixe a versão mais nova de `.img.gz` e `SHA256SUMS` em [Releases](https://github.com/msaulohenrique/nanopi-fm350-manager/releases).
-2. Confira o checksum.
-3. Grave o arquivo compactado diretamente com o [Raspberry Pi Imager](https://www.raspberrypi.com/software/) ou balenaEtcher.
-4. Coloque o microSD, conecte o FM350-GL e ligue o NanoPi. O primeiro boot pode levar alguns minutos para preparar as partições.
+As imagens públicas automáticas **não** recebem uma mesma senha root nem uma chave SSH pessoal. Quando nenhuma senha é injetada em um build privado confiável, o processo remove a senha padrão herdada do FriendlyWrt e segue o fluxo inicial normal do OpenWrt.
 
-O SIM deve estar ativo e sem solicitação de PIN. Se houver PIN, configure-o no LuCI antes de ativar a interface celular.
+1. Conecte a RJ45 apenas a um computador ou roteador confiável.
+2. Abra `https://192.168.77.1/`.
+3. No primeiro acesso, entre como `root` deixando a senha vazia.
+4. Defina imediatamente uma senha forte e exclusiva em **Sistema → Administração**.
+5. Login SSH por senha permanece desativado por padrão. Prefira chave SSH via `AUTHORIZED_KEYS`.
+
+Não exponha um equipamento ainda não configurado a um segmento Ethernet não confiável. Consulte [SECURITY.md](../SECURITY.md).
+
+## Releases: candidata x validada em hardware
+
+Existem duas classes de release:
+
+- **Stable / hardware-verified** — testada fisicamente no NanoPi NEO3 Plus para boot, RJ45, registro do FM350, Internet celular e reinicialização. É a recomendada para uso permanente.
+- **Candidate** — tag iniciada por `candidate-`; compilada e verificada estruturalmente pelo CI, mas ainda sem comprovação de boot no hardware físico.
+
+Para instalar:
+
+1. Baixe `.img.gz`, `SHA256SUMS` e `source-lock.json`.
+2. Confira o SHA-256 antes de gravar.
+3. Grave o `.img.gz` diretamente com Raspberry Pi Imager ou balenaEtcher.
+4. Insira o microSD, conecte o adaptador do FM350 com alimentação adequada e ligue o NanoPi.
+
+Releases estáveis também trazem `HARDWARE_VALIDATION.md` e `HARDWARE_VALIDATION_SHA256`. Veja a [política de validação em hardware](HARDWARE_VALIDATION.md).
 
 ## Conectar o roteador
 
-| Conexão | Configuração do computador/roteador | Endereço do NanoPi | Comportamento |
+| Conexão | Configuração | Endereço do NanoPi | Comportamento |
 | --- | --- | --- | --- |
-| Porta WAN do roteador | DHCP/automático | `192.168.77.1` | Recebe endereço `192.168.77.100–149`, DNS e internet celular |
-| Computador direto para manutenção | DHCP/automático, ou fixo `192.168.77.2/24` | `192.168.77.1` | LuCI, SSH e internet celular pelo mesmo cabo |
+| WAN do roteador | DHCP/automático | `192.168.77.1` | Recebe `192.168.77.100–149`, DNS e Internet celular |
+| Computador direto | DHCP/automático ou `192.168.77.2/24` | `192.168.77.1` | LuCI e Internet celular |
 
-Conecte a RJ45 do NanoPi à porta **WAN/Internet** do roteador e deixe essa porta em DHCP/automático. Para manutenção, abra `https://192.168.77.1/` pela rede interna do roteador ou conecte um computador diretamente. O certificado é gerado localmente, então o navegador pode avisar na primeira abertura. A LAN do roteador deve usar outra sub-rede, por exemplo `192.168.1.0/24`.
+A LAN do roteador downstream deve usar outra sub-rede, por exemplo `192.168.1.0/24`.
 
-Sem o segredo `ROOT_PASSWORD_HASH`, a imagem mantém a credencial inicial do FriendlyWrt: usuário `root`, senha `password`. Ela permite administração completa pelo LuCI e SSH pela LAN RJ45. Troque essa senha pública imediatamente em instalações permanentes. `AUTHORIZED_KEYS` adiciona opcionalmente uma chave SSH de recuperação.
+Esse desenho adiciona uma camada de NAT. É intencional: o projeto prioriza estabilidade no caminho FM350 T700/RNDIS/XMM em vez de bridge transparente frágil. Em redes móveis ainda pode existir CGNAT da operadora.
 
-## Painel do modem e LEDs
+## API de telemetria do FM350
 
-Depois de entrar, abra **Rede → FM350 Manager**. O painel mostra SIM, operadora, tecnologia, RAT, registro, sinal, interfaces AT/dados, IP, gateway, DNS e tempo conectado. A área analítica traz gráficos de sinal e tráfego, bandas/canais/PCI/largura em uso, bandas habilitadas e todas as bandas 3G/4G/5G suportadas. Como o driver T700 mantém o RX de `eth1` zerado, o gráfico de download usa automaticamente os bytes celulares encaminhados pela RJ45.
+Abra **Rede → FM350 Manager → Telemetry API**. A página mostra as métricas de rádio, endpoint e token exclusivo gerado no primeiro boot. É possível ativar/desativar a API ou rotacionar o token.
 
-O formulário celular completo gerencia APN, tipo PDP, CID/perfil, PIN do SIM, PAP/CHAP, usuário e senha. PIN e senha salvos nunca voltam ao navegador: campos secretos vazios preservam os valores e uma caixa separada remove explicitamente o PIN. A área SMS lista a memória do modem ou do SIM, decodifica mensagens UCS-2, envia textos padrão de até 160 bytes e apaga a mensagem selecionada.
+Endpoint:
 
-A interface é progressiva: ações comuns, APN, qualidade do sinal, gráficos e SMS ficam visíveis; matriz de bandas, CID e credenciais ficam recolhidos nas áreas avançadas. Botões e campos são habilitados dinamicamente apenas quando fazem sentido no estado atual.
+```text
+https://192.168.77.1/cgi-bin/fm350-telemetry
+```
+
+Exemplo:
+
+```bash
+curl -k \
+  -H 'X-API-Key: TOKEN_DO_DISPOSITIVO' \
+  'https://192.168.77.1/cgi-bin/fm350-telemetry'
+```
+
+A API diferencia o transporte Linux da origem real da Internet:
+
+```json
+{
+  "upstream_type": "cellular",
+  "physical_transport": "ethernet",
+  "connection": {
+    "technology": "5G NSA (LTE-NR EN-DC)"
+  },
+  "signal": {
+    "rssi_dbm": "-65",
+    "rsrp_dbm": "-89",
+    "rsrq_db": "-10.0",
+    "sinr_db": "22.0"
+  }
+}
+```
+
+Isso resolve a principal limitação ao integrar com sistemas como o RatoNet: o encoder continua usando a interface Ethernet real para bind, ping e bonding, enquanto a API informa que o upstream é celular e entrega operadora, RAT, RSRP, RSRQ, SINR, bandas, TAC e Cell ID. Veja [integração com RatoNet](RATONET.md).
+
+A API nunca expõe PIN do SIM, usuário APN ou senha APN.
+
+## Painel do modem
+
+O painel principal mostra estado do SIM, operadora, tecnologia, RAT, registro, sinal, interfaces AT/dados, IP, gateway, DNS e uptime. A parte analítica mostra histórico de sinal/tráfego, bandas/canais/PCI/largura em uso, bandas habilitadas e suportadas.
+
+O formulário celular gerencia APN, PDP, CID/perfil, PIN, PAP/CHAP, usuário e senha. Segredos gravados não são retornados no status do navegador. A área SMS lista memória do modem/SIM, decodifica UCS-2, envia SMS e apaga mensagens.
 
 | LED | Configuração | Significado |
 | --- | --- | --- |
-| `sys_led` | `heartbeat` | O sistema operacional está ativo. |
-| `user_led` | `netdev` em `eth1`, modos `link tx rx` | Link celular ativo e piscadas durante tráfego do modem. |
+| `sys_led` | `heartbeat` | Sistema operacional ativo |
+| `user_led` | `netdev` em `eth1`, `link tx rx` | Link/tráfego celular |
 
-O botão físico GPIO de usuário (`BTN_1`) executa uma reinicialização segura ao ser solto. O botão **MASK**, separado, mantém sua função original de boot/recuperação e não deve ser usado para reinicializações rotineiras.
+O botão físico `BTN_1` faz reboot seguro ao ser solto. O botão **MASK** mantém sua função de boot/recuperação.
 
-## Releases automáticas
+## GitHub Actions e confiança da imagem
 
-O GitHub Actions verifica novidades diariamente e também quando a receita muda na branch `main`. Ele acompanha o manifesto `master-v*` mais novo, resolve os commits exatos de FriendlyWrt, kernel, U-Boot, toolchain, modemfeed e ferramentas de build, e não recompila quando essa impressão completa já possui release.
+O sistema de Actions agora separa claramente **compilou** de **funcionou no hardware**.
 
-Cada release traz a imagem `.img.gz`, os checksums da imagem compactada e bruta e o arquivo `source-lock.json`. Veja os [detalhes de compilação](BUILD.md).
+### Workflow automático de candidate
 
-O primeiro build local validado usou FriendlyWrt 25.12 em 08/08/2026. SHA-256 da imagem bruta: `7ee7a8cb836fd61eaf71fa34795067f63bc0a99289cceade07ddf9c04ad1ca18`.
+A cada mudança relevante, execução manual ou verificação diária:
 
-Não exponha a rede de manutenção a uma Ethernet não confiável. Consulte [SECURITY.md](../SECURITY.md). Este é um projeto comunitário, sem vínculo oficial com FriendlyELEC, FriendlyARM, Fibocom ou a operadora.
+1. resolve commits exatos de FriendlyWrt, kernel, U-Boot, toolchain, modemfeed e ferramentas;
+2. grava tudo em `source-lock.json`;
+3. executa validações de shell, JSON, JavaScript, segurança e testes unitários;
+4. compila rootfs, U-Boot, kernel e imagem SD;
+5. valida integridade gzip, tamanho da imagem, tabela de partições e área inicial não zerada;
+6. gera SHA-256;
+7. publica como `candidate-*` e `prerelease`;
+8. baixa os assets publicados novamente e confere o SHA-256 outra vez.
+
+Mesmo assim, candidate continua marcada explicitamente como **não validada em hardware**.
+
+### Promoção manual para stable
+
+Um segundo workflow só cria release estável quando o teste físico confirma obrigatoriamente:
+
+- boot do NanoPi NEO3 Plus;
+- RJ45/DHCP;
+- detecção e registro do FM350;
+- Internet celular passando para a RJ45;
+- reinicialização limpa.
+
+Os assets da candidate são baixados e verificados novamente, e a stable recebe um registro `HARDWARE_VALIDATION.md` com testador, data, checksums e observações.
+
+Veja [BUILD.md](BUILD.md) e [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md).
+
+## Builds privados
+
+Builds locais/confiáveis podem fornecer:
+
+- `ROOT_PASSWORD_HASH` — hash `crypt(3)` SHA-256/SHA-512/yescrypt de uma senha única;
+- `AUTHORIZED_KEYS` — chave(s) pública(s) SSH para acesso por chave.
+
+O workflow público não injeta esses valores nas imagens compartilhadas.
+
+## Suporte
+
+Em caso de travamento no boot, informe a tag exata, SHA-256 da imagem, modelo do microSD, fonte, estado dos LEDs e, quando possível, logs UART/U-Boot/kernel. Para falhas do modem, inclua também USB ID, porta AT detectada e logs relevantes.
+
+Projeto comunitário sem vínculo oficial com FriendlyELEC, FriendlyARM, Fibocom, RatoNet ou operadoras móveis.
