@@ -6,43 +6,52 @@ wrapper="$REPO_ROOT/overlay/rootfs/usr/sbin/fm350-gcom-locked"
 workdir=$(mktemp -d)
 trap 'rm -rf "$workdir"' EXIT
 
+[[ -x /usr/bin/flock ]] || {
+	echo '/usr/bin/flock is required for the lock regression test' >&2
+	exit 1
+}
+
 cat >"$workdir/gcom" <<'EOF'
 #!/bin/sh
 sleep "${FAKE_GCOM_SLEEP:-0}"
 exit "${FAKE_GCOM_RC:-0}"
 EOF
 chmod +x "$workdir/gcom"
+lock_file="$workdir/fm350-at.lock"
 
-lock_dir="$workdir/fm350-at.lock"
-
-PATH="$workdir:$PATH" FM350_AT_LOCK_DIR="$lock_dir" FAKE_GCOM_SLEEP=2 \
+# First session acquires the kernel lock and stays inside gcom.
+PATH="$workdir:$PATH" FM350_AT_LOCK_FILE="$lock_file" FAKE_GCOM_SLEEP=30 \
 	sh "$wrapper" -s fake.gcom &
 first_pid=$!
-for _ in $(seq 1 20); do
-	[[ -d "$lock_dir" ]] && break
+
+# Prove a competing session cannot enter while the first owns the lock.
+busy_rc=0
+for _ in $(seq 1 30); do
+	set +e
+	PATH="$workdir:$PATH" FM350_AT_LOCK_FILE="$lock_file" FM350_AT_LOCK_WAIT=0 \
+		sh "$wrapper" -s fake.gcom >/dev/null 2>&1
+	busy_rc=$?
+	set -e
+	[[ "$busy_rc" -ne 0 ]] && break
 	sleep 0.1
 done
-[[ -d "$lock_dir" ]] || {
-	echo 'First locked gcom session did not acquire the lock' >&2
-	kill "$first_pid" 2>/dev/null || true
+[[ "$busy_rc" -ne 0 ]] || {
+	echo 'Competing gcom session unexpectedly acquired the lock' >&2
+	kill -KILL "$first_pid" 2>/dev/null || true
 	exit 1
 }
 
-set +e
-PATH="$workdir:$PATH" FM350_AT_LOCK_DIR="$lock_dir" FM350_AT_LOCK_WAIT=1 \
-	sh "$wrapper" -s fake.gcom >/dev/null 2>&1
-second_rc=$?
-set -e
-[[ "$second_rc" -eq 1 ]] || {
-	echo "Expected a competing session to exit 1 for netifd, got $second_rc" >&2
-	kill "$first_pid" 2>/dev/null || true
+# SIGKILL cannot run shell traps. Kernel-backed flock must still be released.
+kill -KILL "$first_pid"
+wait "$first_pid" 2>/dev/null || true
+
+PATH="$workdir:$PATH" FM350_AT_LOCK_FILE="$lock_file" FM350_AT_LOCK_WAIT=1 \
+	sh "$wrapper" -s fake.gcom >/dev/null
+
+# The lock file may persist by design; its advisory lock must not.
+[[ -f "$lock_file" ]] || {
+	echo 'Expected the reusable flock file to exist after the test' >&2
 	exit 1
 }
 
-wait "$first_pid"
-[[ ! -e "$lock_dir" ]] || {
-	echo 'AT lock was not released after gcom exited' >&2
-	exit 1
-}
-
-echo 'FM350 gcom lock tests passed'
+echo 'FM350 kernel-backed gcom lock tests passed'
