@@ -2,6 +2,7 @@
 
 # shellcheck disable=SC1091
 . /usr/share/libubox/jshn.sh
+. /usr/lib/fm350/signal.sh
 
 status_json=$(ifstatus cellular 2>/dev/null || printf '{}')
 up=$(printf '%s' "$status_json" | jsonfilter -e '@.up' 2>/dev/null)
@@ -50,6 +51,14 @@ else
 	credentials_configured=0
 fi
 
+root_hash=$(awk -F: '$1 == "root" { print $2; exit }' /etc/shadow 2>/dev/null)
+case "$root_hash" in
+	''|'!'|'*') admin_password_set=0 ;;
+	*) admin_password_set=1 ;;
+esac
+api_enabled=$(uci -q get fm350.api.enabled)
+[ "$api_enabled" = 1 ] && api_enabled_boolean=1 || api_enabled_boolean=0
+
 at_output=
 if [ -c "$device" ] && ! pidof gcom >/dev/null 2>&1; then
 	at_output=$(timeout 12 gcom -d "$device" -s /etc/gcom/fm350-status.gcom 2>/dev/null || true)
@@ -58,9 +67,48 @@ fi
 sim=$(printf '%s\n' "$at_output" | sed -n 's/.*+CPIN: *\([^[:space:]\r]*\).*/\1/p' | head -n1)
 operator=$(printf '%s\n' "$at_output" | sed -n 's/.*+COPS:[^\"]*\"\([^\"]*\)\".*/\1/p' | head -n1)
 rat=$(printf '%s\n' "$at_output" | sed -n 's/.*+COPS:.*,[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n1)
-registration=$(printf '%s\n' "$at_output" | sed -n 's/.*+CEREG: *[0-9]*,\([0-9]*\).*/\1/p' | head -n1)
+cereg=$(printf '%s\n' "$at_output" | sed -n 's/.*+CEREG: *//p' | head -n1 | tr -d '\r')
+registration=$(printf '%s' "$cereg" | cut -d, -f2 | tr -d ' "')
+tac=$(printf '%s' "$cereg" | cut -d, -f3 | tr -d ' "')
+cell_id=$(printf '%s' "$cereg" | cut -d, -f4 | tr -d ' "')
 csq=$(printf '%s\n' "$at_output" | sed -n 's/.*+CSQ: *\([0-9]*\),.*/\1/p' | head -n1)
-cesq_rsrp=$(printf '%s\n' "$at_output" | sed -n 's/.*+CESQ: *[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,\([0-9]*\).*/\1/p' | head -n1)
+cesq=$(printf '%s\n' "$at_output" | sed -n 's/.*+CESQ: *\(.*\)/\1/p' | head -n1 | tr -d '\r ')
+
+cesq_field() {
+	printf '%s' "$cesq" | cut -d, -f"$1"
+}
+
+lte_rsrq_raw=$(cesq_field 5)
+lte_rsrp_raw=$(cesq_field 6)
+nr_rsrq_raw=$(cesq_field 7)
+nr_rsrp_raw=$(cesq_field 8)
+nr_sinr_raw=$(cesq_field 9)
+
+rssi=$(fm350_csq_rssi "$csq")
+lte_rsrq=$(fm350_lte_rsrq "$lte_rsrq_raw")
+lte_rsrp=$(fm350_lte_rsrp "$lte_rsrp_raw")
+nr_rsrq=$(fm350_nr_rsrq "$nr_rsrq_raw")
+nr_rsrp=$(fm350_nr_rsrp "$nr_rsrp_raw")
+nr_sinr=$(fm350_nr_sinr "$nr_sinr_raw")
+
+if [ -n "$nr_rsrp" ]; then
+	rsrp=$nr_rsrp
+	rsrq=$nr_rsrq
+	sinr=$nr_sinr
+	signal_generation=nr
+elif [ -n "$lte_rsrp" ]; then
+	rsrp=$lte_rsrp
+	rsrq=$lte_rsrq
+	sinr=
+	signal_generation=lte
+else
+	rsrp=
+	rsrq=
+	sinr=
+	signal_generation=unknown
+fi
+
+dbm=${rsrp:-$rssi}
 
 case "$rat" in
 	2) technology='3G UMTS' ;; 4) technology='3G HSDPA' ;; 5) technology='3G HSUPA' ;;
@@ -68,17 +116,6 @@ case "$rat" in
 	11) technology='5G NR SA' ;; 12) technology='5G NR (EPS core)' ;;
 	13) technology='5G NR (NG-RAN)' ;; 14) technology='5G NSA (LTE-NR EN-DC)' ;;
 	*) technology='unknown' ;;
-esac
-
-dbm=
-case "$csq" in
-	''|99) ;;
-	*[!0-9]*) ;;
-	*) [ "$csq" -le 31 ] && dbm=$((-113 + (2 * csq))) ;;
-esac
-case "$cesq_rsrp" in
-	''|255|*[!0-9]*) ;;
-	*) [ -n "$dbm" ] || { [ "$cesq_rsrp" -le 97 ] && dbm=$((-140 + cesq_rsrp)); } ;;
 esac
 
 case "$registration" in
@@ -104,12 +141,26 @@ json_add_string profile "${profile:-1}"
 json_add_string auth "${auth:-none}"
 json_add_boolean pin_configured "$pin_configured"
 json_add_boolean credentials_configured "$credentials_configured"
+json_add_boolean admin_password_set "$admin_password_set"
+json_add_boolean telemetry_api_enabled "$api_enabled_boolean"
 json_add_string sim "${sim:-unknown}"
 json_add_string operator "${operator:-unknown}"
 json_add_string rat "${rat:-unknown}"
 json_add_string technology "$technology"
 json_add_string registration "${registration_text:-unknown}"
+json_add_string tac "${tac:-unknown}"
+json_add_string cell_id "${cell_id:-unknown}"
 json_add_string csq "${csq:-unknown}"
+json_add_string rssi "${rssi:-unknown}"
+json_add_string rsrp "${rsrp:-unknown}"
+json_add_string rsrq "${rsrq:-unknown}"
+json_add_string sinr "${sinr:-unknown}"
+json_add_string lte_rsrp "${lte_rsrp:-unknown}"
+json_add_string lte_rsrq "${lte_rsrq:-unknown}"
+json_add_string nr_rsrp "${nr_rsrp:-unknown}"
+json_add_string nr_rsrq "${nr_rsrq:-unknown}"
+json_add_string nr_sinr "${nr_sinr:-unknown}"
+json_add_string signal_generation "$signal_generation"
 json_add_string dbm "${dbm:-unknown}"
 json_add_string ip "${ipaddr:--}"
 json_add_string gateway "${gateway:--}"
