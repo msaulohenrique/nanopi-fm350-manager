@@ -1,0 +1,58 @@
+#!/bin/sh
+
+# shellcheck disable=SC1091
+. /usr/share/libubox/jshn.sh
+
+new_token() {
+	dd if=/dev/urandom bs=24 count=1 2>/dev/null | od -An -tx1 | tr -d ' \n'
+}
+
+ensure_config() {
+	uci -q get fm350.api >/dev/null 2>&1 || uci set fm350.api=api
+	uci -q get fm350.api.enabled >/dev/null 2>&1 || uci set fm350.api.enabled='1'
+	if ! token=$(uci -q get fm350.api.token) || [ -z "$token" ]; then
+		token=$(new_token)
+		uci set fm350.api.token="$token"
+	fi
+	uci commit fm350
+}
+
+reply() {
+	enabled=$(uci -q get fm350.api.enabled)
+	token=$(uci -q get fm350.api.token)
+	json_init
+	[ "$enabled" = 1 ] && json_add_boolean enabled 1 || json_add_boolean enabled 0
+	json_add_string token "${token:-}"
+	json_add_string endpoint 'https://192.168.77.1/cgi-bin/fm350-telemetry'
+	json_dump
+}
+
+action=${1:-show}
+case "$action" in
+	ensure|show)
+		ensure_config
+		reply
+		;;
+	rotate)
+		ensure_config
+		uci set fm350.api.token="$(new_token)"
+		uci commit fm350
+		reply
+		;;
+	enable)
+		ensure_config
+		uci set fm350.api.enabled='1'
+		uci commit fm350
+		reply
+		;;
+	disable)
+		ensure_config
+		uci set fm350.api.enabled='0'
+		uci commit fm350
+		reply
+		;;
+	*)
+		echo 'Usage: fm350-api-token [show|rotate|enable|disable|ensure]' >&2
+		exit 2
+		;;
+esac
