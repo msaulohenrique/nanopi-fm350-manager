@@ -10,7 +10,7 @@ on:
         required: false
         type: string
       force_release:
-        description: Build even when this upstream fingerprint already has a candidate
+        description: Build even when this firmware identity already has a candidate
         required: false
         default: false
         type: boolean
@@ -18,12 +18,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/release.yml'
-      - '.github/workflows/promote-hardware-verified.yml'
       - 'config/**'
       - 'overlay/**'
       - 'scripts/**'
       - 'targets/**'
-      - 'tests/**'
 
 permissions:
   contents: write
@@ -31,7 +29,8 @@ permissions:
 
 concurrency:
   group: friendlywrt-candidate
-  cancel-in-progress: false
+  # A newer source/recipe state makes an older in-flight candidate stale.
+  cancel-in-progress: true
 
 jobs:
   prepare:
@@ -42,6 +41,7 @@ jobs:
       tag: ${{ steps.decision.outputs.tag }}
       version: ${{ steps.discover.outputs.version }}
       fingerprint: ${{ steps.discover.outputs.fingerprint }}
+      provenance_fingerprint: ${{ steps.discover.outputs.provenance_fingerprint }}
       lock_b64: ${{ steps.discover.outputs.lock_b64 }}
     steps:
       - name: Check out repository
@@ -49,7 +49,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve upstream commits
+      - name: Resolve effective firmware inputs and build provenance
         id: discover
         env:
           FRIENDLYWRT_VERSION_OVERRIDE: ${{ inputs.version }}
@@ -60,16 +60,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_TAG: ${{ steps.discover.outputs.tag }}
+          FIRMWARE_FINGERPRINT: ${{ steps.discover.outputs.fingerprint }}
+          PROVENANCE_FINGERPRINT: ${{ steps.discover.outputs.provenance_fingerprint }}
           FORCE_RELEASE: ${{ inputs.force_release || 'false' }}
         run: |
           tag="candidate-${BASE_TAG}"
           should_build=true
+          reason='effective firmware inputs changed or no candidate exists'
           if release_json=$(gh release view "$tag" --json isDraft 2>/dev/null); then
             is_draft=$(printf '%s' "$release_json" | jq -r .isDraft)
             if [[ "$is_draft" != "true" && "$FORCE_RELEASE" != "true" ]]; then
               should_build=false
+              reason='same firmware identity already published; provenance-only changes are ignored'
             elif [[ "$is_draft" != "true" ]]; then
               tag="${tag}-r${GITHUB_RUN_NUMBER}"
+              reason='manual force_release requested'
             fi
           fi
           echo "tag=$tag" >>"$GITHUB_OUTPUT"
@@ -77,6 +82,9 @@ jobs:
           echo "### Candidate decision" >>"$GITHUB_STEP_SUMMARY"
           echo "- Tag: \`$tag\`" >>"$GITHUB_STEP_SUMMARY"
           echo "- Build: \`$should_build\`" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Reason: $reason" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Firmware fingerprint: \`$FIRMWARE_FINGERPRINT\`" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Provenance fingerprint: \`$PROVENANCE_FINGERPRINT\`" >>"$GITHUB_STEP_SUMMARY"
           echo "- Hardware verified: \`false\`" >>"$GITHUB_STEP_SUMMARY"
 
   rootfs:
