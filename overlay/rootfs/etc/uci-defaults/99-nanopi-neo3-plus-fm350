@@ -7,7 +7,7 @@
 # every inherited Dropbear section with one explicit maintenance-only section so
 # the security options below always configure the server that actually runs.
 [ -e /etc/config/dropbear ] || : >/etc/config/dropbear
-while uci -q delete dropbear.@dropbear[0] >/dev/null 2>&1; do :; done
+while uci -q delete 'dropbear.@dropbear[0]' >/dev/null 2>&1; do :; done
 uci -q delete dropbear.main >/dev/null 2>&1 || true
 
 uci -q batch <<'EOF'
