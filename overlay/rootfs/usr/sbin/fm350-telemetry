@@ -1,0 +1,99 @@
+#!/bin/sh
+
+# shellcheck disable=SC1091
+. /usr/share/libubox/jshn.sh
+
+status=$(/usr/sbin/fm350-status 2>/dev/null || printf '{}')
+radio=$(/usr/sbin/fm350-radio 2>/dev/null || printf '{}')
+
+json_get() {
+	payload=$1
+	expr=$2
+	printf '%s' "$payload" | jsonfilter -e "@.$expr" 2>/dev/null | head -n1
+}
+
+state=$(json_get "$status" state)
+up=$(json_get "$status" up)
+operator=$(json_get "$status" operator)
+technology=$(json_get "$status" technology)
+registration=$(json_get "$status" registration)
+model=$(json_get "$status" model)
+interface=$(json_get "$status" interface)
+ip=$(json_get "$status" ip)
+gateway=$(json_get "$status" gateway)
+dns=$(json_get "$status" dns)
+uptime=$(json_get "$status" uptime)
+rx_bytes=$(json_get "$status" rx_bytes)
+tx_bytes=$(json_get "$status" tx_bytes)
+rssi=$(json_get "$status" rssi)
+rsrp=$(json_get "$status" rsrp)
+rsrq=$(json_get "$status" rsrq)
+sinr=$(json_get "$status" sinr)
+lte_rsrp=$(json_get "$status" lte_rsrp)
+lte_rsrq=$(json_get "$status" lte_rsrq)
+nr_rsrp=$(json_get "$status" nr_rsrp)
+nr_rsrq=$(json_get "$status" nr_rsrq)
+nr_sinr=$(json_get "$status" nr_sinr)
+signal_generation=$(json_get "$status" signal_generation)
+tac=$(json_get "$status" tac)
+cell_id=$(json_get "$status" cell_id)
+bands_in_use=$(json_get "$radio" bands_in_use)
+configured_bands=$(json_get "$radio" configured_bands)
+supported_bands=$(json_get "$radio" supported_bands)
+rat_code=$(json_get "$radio" rat_code)
+
+case "$up" in
+	true|1) up_boolean=1 ;;
+	*) up_boolean=0 ;;
+esac
+
+json_init
+json_add_int schema_version 1
+json_add_string generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+json_add_string gateway_model 'NanoPi NEO3 Plus'
+json_add_string modem_model "${model:-Fibocom FM350-GL}"
+json_add_string upstream_type cellular
+json_add_string physical_transport ethernet
+json_add_string ratonet_type 4g
+
+json_add_object connection
+json_add_string state "${state:-unknown}"
+json_add_boolean up "$up_boolean"
+json_add_string operator "${operator:-unknown}"
+json_add_string technology "${technology:-unknown}"
+json_add_string registration "${registration:-unknown}"
+json_add_string rat_code "${rat_code:-unknown}"
+json_close_object
+
+json_add_object signal
+json_add_string generation "${signal_generation:-unknown}"
+json_add_string rssi_dbm "${rssi:-unknown}"
+json_add_string rsrp_dbm "${rsrp:-unknown}"
+json_add_string rsrq_db "${rsrq:-unknown}"
+json_add_string sinr_db "${sinr:-unknown}"
+json_add_string lte_rsrp_dbm "${lte_rsrp:-unknown}"
+json_add_string lte_rsrq_db "${lte_rsrq:-unknown}"
+json_add_string nr_rsrp_dbm "${nr_rsrp:-unknown}"
+json_add_string nr_rsrq_db "${nr_rsrq:-unknown}"
+json_add_string nr_sinr_db "${nr_sinr:-unknown}"
+json_close_object
+
+json_add_object radio
+json_add_string tac "${tac:-unknown}"
+json_add_string cell_id "${cell_id:-unknown}"
+json_add_string bands_in_use "${bands_in_use:-unknown}"
+json_add_string configured_bands "${configured_bands:-unknown}"
+json_add_string supported_bands "${supported_bands:-unknown}"
+json_close_object
+
+json_add_object network
+json_add_string interface "${interface:-eth1}"
+json_add_string ipv4 "${ip:--}"
+json_add_string gateway "${gateway:--}"
+json_add_string dns "${dns:--}"
+json_add_string uptime_seconds "${uptime:-0}"
+json_add_string rx_bytes "${rx_bytes:-0}"
+json_add_string tx_bytes "${tx_bytes:-0}"
+json_close_object
+
+json_dump
