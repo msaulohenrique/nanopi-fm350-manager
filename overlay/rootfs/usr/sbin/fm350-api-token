@@ -30,7 +30,11 @@ reply() {
 	enabled=$(uci -q get fm350.api.enabled)
 	token=$(uci -q get fm350.api.token)
 	json_init
-	[ "$enabled" = 1 ] && json_add_boolean enabled 1 || json_add_boolean enabled 0
+	if [ "$enabled" = 1 ]; then
+		json_add_boolean enabled 1
+	else
+		json_add_boolean enabled 0
+	fi
 	json_add_string token "${token:-}"
 	json_add_string endpoint 'https://192.168.77.1/cgi-bin/fm350-telemetry'
 	json_dump
