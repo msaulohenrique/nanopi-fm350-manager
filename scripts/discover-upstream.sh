@@ -44,10 +44,32 @@ version=${manifest_branch#master-v}
 manifest_file="$temp_dir/manifests/$FRIENDLYWRT_MANIFEST"
 manifest_commit=$(git -C "$temp_dir/manifests" rev-parse HEAD)
 
+# Release identity must represent effective firmware inputs, not CI metadata.
+# These tracked files can change the generated rootfs/image or which source
+# projects are assembled. Workflow, validator and host-runner changes are
+# recorded below as provenance but deliberately do not create a new release.
 customization_sha256=$(
 	cd "$REPO_ROOT"
 	git ls-files -s -- \
-		.github/workflows/release.yml config overlay scripts targets |
+		config/07-fm350 \
+		overlay \
+		targets/rk3528_fm350.mk \
+		scripts/apply-customizations.sh \
+		scripts/build-rootfs.sh \
+		scripts/build-image.sh \
+		scripts/sync-sources.sh |
+		sha256sum |
+		awk '{print $1}'
+)
+
+# Keep a broader audit fingerprint so the exact build machinery remains
+# traceable even when it does not alter the firmware release identity.
+provenance_sha256=$(
+	cd "$REPO_ROOT"
+	git ls-files -s -- \
+		.github/workflows/release.yml \
+		.github/workflows/promote-hardware-verified.yml \
+		config overlay scripts targets tests |
 		sha256sum |
 		awk '{print $1}'
 )
@@ -60,16 +82,21 @@ python3 "$SCRIPT_DIR/resolve-lock.py" \
 	--project-base-url "$FRIENDLYWRT_PROJECT_BASE_URL" \
 	--version "$version" \
 	--customization-sha256 "$customization_sha256" \
+	--provenance-sha256 "$provenance_sha256" \
 	--resource "modemfeed|$MODEMFEED_REPOSITORY|$MODEMFEED_REF" \
 	--resource "build_env|$BUILD_ENV_REPOSITORY|$BUILD_ENV_REF" \
 	--resource "repo_tool|$REPO_TOOL_REPOSITORY|$REPO_TOOL_REF" \
 	--output "$output"
 
 fingerprint=$(python3 "$SCRIPT_DIR/lock-query.py" "$output" get fingerprint)
+provenance_fingerprint=$(
+	python3 "$SCRIPT_DIR/lock-query.py" "$output" get provenance_fingerprint
+)
 tag="friendlywrt-${version}-${fingerprint:0:12}"
 
 echo "FriendlyWrt: $version"
-echo "Source fingerprint: $fingerprint"
+echo "Firmware fingerprint: $fingerprint"
+echo "Build provenance fingerprint: $provenance_fingerprint"
 echo "Release tag: $tag"
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
@@ -77,6 +104,7 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
 		echo "version=$version"
 		echo "manifest_branch=$manifest_branch"
 		echo "fingerprint=$fingerprint"
+		echo "provenance_fingerprint=$provenance_fingerprint"
 		echo "tag=$tag"
 		echo "lock_b64=$(base64 -w0 "$output")"
 	} >>"$GITHUB_OUTPUT"
