@@ -1,4 +1,4 @@
-name: Build and release FriendlyWrt
+name: Build FriendlyWrt candidate
 
 on:
   schedule:
@@ -10,7 +10,7 @@ on:
         required: false
         type: string
       force_release:
-        description: Build even when this upstream fingerprint was already released
+        description: Build even when this upstream fingerprint already has a candidate
         required: false
         default: false
         type: boolean
@@ -18,17 +18,19 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/release.yml'
+      - '.github/workflows/promote-hardware-verified.yml'
       - 'config/**'
       - 'overlay/**'
       - 'scripts/**'
       - 'targets/**'
+      - 'tests/**'
 
 permissions:
   contents: write
   issues: write
 
 concurrency:
-  group: friendlywrt-release
+  group: friendlywrt-candidate
   cancel-in-progress: false
 
 jobs:
@@ -44,6 +46,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Resolve upstream commits
         id: discover
@@ -51,14 +55,14 @@ jobs:
           FRIENDLYWRT_VERSION_OVERRIDE: ${{ inputs.version }}
         run: ./scripts/discover-upstream.sh source-lock.json
 
-      - name: Decide whether a build is needed
+      - name: Decide whether a candidate build is needed
         id: decision
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_TAG: ${{ steps.discover.outputs.tag }}
           FORCE_RELEASE: ${{ inputs.force_release || 'false' }}
         run: |
-          tag=$BASE_TAG
+          tag="candidate-${BASE_TAG}"
           should_build=true
           if release_json=$(gh release view "$tag" --json isDraft 2>/dev/null); then
             is_draft=$(printf '%s' "$release_json" | jq -r .isDraft)
@@ -70,9 +74,10 @@ jobs:
           fi
           echo "tag=$tag" >>"$GITHUB_OUTPUT"
           echo "should_build=$should_build" >>"$GITHUB_OUTPUT"
-          echo "### Release decision" >>"$GITHUB_STEP_SUMMARY"
+          echo "### Candidate decision" >>"$GITHUB_STEP_SUMMARY"
           echo "- Tag: \`$tag\`" >>"$GITHUB_STEP_SUMMARY"
           echo "- Build: \`$should_build\`" >>"$GITHUB_STEP_SUMMARY"
+          echo "- Hardware verified: \`false\`" >>"$GITHUB_STEP_SUMMARY"
 
   rootfs:
     needs: prepare
@@ -85,6 +90,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Restore exact source lock
         env:
@@ -119,16 +126,16 @@ jobs:
         id: build
         run: ./scripts/build-rootfs.sh source-lock.json work artifacts
 
-      - name: Create draft release and upload intermediate files
+      - name: Create draft candidate and upload intermediate files
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --draft \
-              --title "FriendlyWrt $VERSION · NanoPi NEO3 Plus + FM350-GL" \
-              --notes "Build in progress. Assets are published only after validation."
+            gh release create "$RELEASE_TAG" --draft --prerelease \
+              --title "Candidate · FriendlyWrt $VERSION · NanoPi NEO3 Plus + FM350-GL" \
+              --notes "Automated candidate build in progress. It is not hardware-verified and must not be treated as stable until promoted by the hardware-validation workflow."
           fi
           gh release upload "$RELEASE_TAG" \
             "artifacts/${{ steps.build.outputs.rootfs_filename }}" \
@@ -143,6 +150,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Restore exact source lock
         env:
@@ -184,28 +193,38 @@ jobs:
           gh release download "$RELEASE_TAG" \
             --pattern '${{ needs.rootfs.outputs.host_pm_filename }}' --dir intermediate
 
-      - name: Build and validate SD image
+      - name: Build and structurally validate SD image
         id: image
-        env:
-          AUTHORIZED_KEYS: ${{ secrets.AUTHORIZED_KEYS }}
-          ROOT_PASSWORD_HASH: ${{ secrets.ROOT_PASSWORD_HASH }}
         run: |
+          # Public candidates intentionally do not inject a shared root password
+          # or personal SSH keys. First boot uses the secure onboarding flow.
           ./scripts/build-image.sh source-lock.json work \
             "intermediate/${{ needs.rootfs.outputs.rootfs_filename }}" \
             "intermediate/${{ needs.rootfs.outputs.host_pm_filename }}" artifacts
 
-      - name: Generate multilingual release notes
+      - name: Generate multilingual candidate notes
         run: |
           ./scripts/generate-release-notes.py source-lock.json \
             --image '${{ steps.image.outputs.image_filename }}' \
             --output artifacts/release-notes.md
+          cat >>artifacts/release-notes.md <<'EOF'
 
-      - name: Publish verified release
+          ---
+
+          ## Candidate status / Estado da imagem
+
+          This is an **automated hardware-unverified candidate**. Compilation, source locking, checksums, gzip integrity and SD-image structural checks passed, but those checks do not prove that the image boots on a physical NanoPi NEO3 Plus. Stable releases are created only by the separate hardware-validation workflow after real-device boot, Ethernet, FM350 and Internet tests.
+
+          Esta é uma **imagem candidata automática ainda não validada em hardware**. Compilação, fontes fixadas, checksums, integridade gzip e validações estruturais da imagem passaram, mas isso não prova boot em um NanoPi NEO3 Plus físico. Releases estáveis só são publicadas pelo workflow separado de validação em hardware após testes reais de boot, Ethernet, FM350 e Internet.
+          EOF
+
+      - name: Publish candidate release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
+          (cd artifacts && sha256sum -c SHA256SUMS)
           gh release upload "$RELEASE_TAG" \
             "artifacts/${{ steps.image.outputs.image_filename }}" \
             artifacts/SHA256SUMS artifacts/RAW_IMAGE_SHA256 \
@@ -215,18 +234,34 @@ jobs:
           gh release delete-asset "$RELEASE_TAG" \
             '${{ needs.rootfs.outputs.host_pm_filename }}' --yes
           gh release edit "$RELEASE_TAG" \
-            --title "FriendlyWrt $VERSION · NanoPi NEO3 Plus + FM350-GL" \
-            --notes-file artifacts/release-notes.md --draft=false --latest
+            --title "Candidate · FriendlyWrt $VERSION · NanoPi NEO3 Plus + FM350-GL" \
+            --notes-file artifacts/release-notes.md --draft=false --prerelease
+
+      - name: Verify published assets by downloading them again
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          mkdir published
+          gh release download "$RELEASE_TAG" --dir published
+          (cd published && sha256sum -c SHA256SUMS)
+          gzip -t "published/${{ steps.image.outputs.image_filename }}"
+          echo "### Published candidate" >>"$GITHUB_STEP_SUMMARY"
+          echo "[$RELEASE_TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG)" >>"$GITHUB_STEP_SUMMARY"
+          echo "Hardware verification is still required before stable promotion." >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Close resolved automated-build issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
           failure_issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
-            --search 'Automated FriendlyWrt release failed in:title' \
+            --search 'Automated FriendlyWrt candidate failed in:title' \
             --json number --jq '.[0].number // empty')
           if [[ -n "$failure_issue" ]]; then
             gh issue close "$failure_issue" --repo "$GITHUB_REPOSITORY" \
-              --comment "Resolved by release $RELEASE_TAG."
+              --comment "Resolved by candidate $RELEASE_TAG. Hardware verification is tracked separately."
           fi
-          echo "### Published" >>"$GITHUB_STEP_SUMMARY"
-          echo "[$RELEASE_TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG)" \
-            >>"$GITHUB_STEP_SUMMARY"
 
   cleanup-on-failure:
     needs: [prepare, rootfs, image]
@@ -248,7 +283,7 @@ jobs:
                 --cleanup-tag --yes
             fi
           fi
-          title='Automated FriendlyWrt release failed'
+          title='Automated FriendlyWrt candidate failed'
           body="Workflow failed: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
             --search "$title in:title" \
