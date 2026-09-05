@@ -96,7 +96,7 @@ case "$action" in
 		fi
 		[ -n "$text" ] || fail 'SMS text is empty' 2
 		if ! fm350_sms_text_is_basic "$text"; then
-			fail 'SMS text must use GSM 7-bit basic ASCII only, with at most 160 characters; accents, emoji and extension characters [ ] \\ ^ ` { | } ~ are not supported yet' 2
+			fail 'SMS text must use bytes that map directly to the GSM 7-bit alphabet, with at most 160 characters; accents, emoji and @ $ _ [ ] \\ ^ ` { | } ~ are not supported yet' 2
 		fi
 		SMS_NUMBER="$number" SMS_TEXT="$text" timeout 100 gcom -d "$device" -s /etc/gcom/fm350-sms-send.gcom >/dev/null 2>&1 ||
 			fail 'The modem did not send the SMS'
