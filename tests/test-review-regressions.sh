@@ -61,4 +61,5 @@ for target in \
 done
 
 bash "$REPO_ROOT/tests/test-gcom-lock.sh"
+bash "$REPO_ROOT/tests/test-process-gate.sh"
 echo 'Historical PR review regression checks passed'
