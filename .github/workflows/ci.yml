@@ -8,28 +8,67 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
 
       - name: Install validators
         run: sudo apt-get update && sudo apt-get install -y shellcheck python3-yaml
 
-      - name: Check shell syntax and style
+      - name: Check every shell script parses
+        run: |
+          while IFS= read -r -d '' script; do
+            bash -n "$script"
+          done < <(grep -rlZE '^#!.*(ba)?sh' scripts tests overlay)
+
+      - name: Check shell style
         run: |
           grep -rlZE '^#!.*(ba)?sh' scripts tests overlay |
             xargs -0 shellcheck -x
 
-      - name: Validate YAML syntax
+      - name: Validate workflow YAML syntax
         run: |
-          python3 -c 'import pathlib, yaml; [yaml.safe_load(path.read_text()) for path in pathlib.Path(".github/workflows").glob("*.yml")]'
+          python3 - <<'PY'
+          import pathlib
+          import yaml
+          for path in pathlib.Path('.github/workflows').glob('*.yml'):
+              data = yaml.safe_load(path.read_text())
+              if not isinstance(data, dict):
+                  raise SystemExit(f'{path}: workflow root must be a mapping')
+              print(f'validated {path}')
+          PY
 
-      - name: Validate repository invariants
+      - name: Validate candidate versus stable release policy
+        run: |
+          grep -q 'candidate-${BASE_TAG}' .github/workflows/release.yml
+          grep -q -- '--prerelease' .github/workflows/release.yml
+          if grep -q -- '--latest' .github/workflows/release.yml; then
+            echo 'Automated candidate workflow must never publish --latest' >&2
+            exit 1
+          fi
+          grep -q 'boot_confirmed' .github/workflows/promote-hardware-verified.yml
+          grep -q 'ethernet_confirmed' .github/workflows/promote-hardware-verified.yml
+          grep -q 'modem_confirmed' .github/workflows/promote-hardware-verified.yml
+          grep -q 'internet_confirmed' .github/workflows/promote-hardware-verified.yml
+          grep -q 'reboot_confirmed' .github/workflows/promote-hardware-verified.yml
+          grep -q -- '--latest' .github/workflows/promote-hardware-verified.yml
+
+      - name: Validate repository invariants and unit tests
         run: ./scripts/validate-repository.sh
+
+      - name: Check Python sources
+        run: python3 -m compileall -q scripts
 
       - name: Check whitespace
         run: git diff --check HEAD~1 HEAD || git diff --check
