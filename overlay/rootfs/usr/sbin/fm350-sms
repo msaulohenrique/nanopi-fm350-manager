@@ -26,14 +26,11 @@ validate_storage() {
 device=$(uci -q get network.cellular.device)
 [ -c "$device" ] || fail 'FM350 AT port is not available'
 
-lock_dir=/tmp/fm350-at.lock
-mkdir "$lock_dir" 2>/dev/null || fail 'The modem is busy; try again shortly'
 temp_file=
 cleanup() {
 	if [ -n "$temp_file" ]; then
 		rm -f "$temp_file"
 	fi
-	rmdir "$lock_dir" 2>/dev/null
 }
 trap cleanup 0 1 2 15
 
@@ -42,8 +39,8 @@ case "$action" in
 	list)
 		storage=${2:-ME}
 		validate_storage "$storage"
-		output=$(SMS_STORAGE="$storage" timeout 35 gcom -d "$device" -s /etc/gcom/fm350-sms-list.gcom 2>/dev/null) ||
-			fail 'Unable to list SMS messages'
+		output=$(SMS_STORAGE="$storage" FM350_AT_LOCK_WAIT=2 timeout 35 /usr/sbin/fm350-gcom-locked -d "$device" -s /etc/gcom/fm350-sms-list.gcom 2>/dev/null) ||
+			fail 'Unable to list SMS messages or the modem is busy'
 		json_init
 		json_add_boolean ok 1
 		json_add_string storage "$storage"
@@ -98,8 +95,8 @@ case "$action" in
 		if ! fm350_sms_text_is_basic "$text"; then
 			fail 'SMS text must use bytes that map directly to the GSM 7-bit alphabet, with at most 160 characters; accents, emoji and @ $ _ [ ] \\ ^ ` { | } ~ are not supported yet' 2
 		fi
-		SMS_NUMBER="$number" SMS_TEXT="$text" timeout 100 gcom -d "$device" -s /etc/gcom/fm350-sms-send.gcom >/dev/null 2>&1 ||
-			fail 'The modem did not send the SMS'
+		SMS_NUMBER="$number" SMS_TEXT="$text" FM350_AT_LOCK_WAIT=2 timeout 100 /usr/sbin/fm350-gcom-locked -d "$device" -s /etc/gcom/fm350-sms-send.gcom >/dev/null 2>&1 ||
+			fail 'The modem did not send the SMS or the modem is busy'
 		reply 1 'SMS sent'
 		;;
 	delete)
@@ -108,8 +105,8 @@ case "$action" in
 		validate_storage "$storage"
 		case "$index" in ''|*[!0-9]*) fail 'Invalid SMS index' 2 ;; esac
 		[ "$index" -le 9999 ] || fail 'Invalid SMS index' 2
-		SMS_STORAGE="$storage" SMS_INDEX="$index" timeout 35 gcom -d "$device" -s /etc/gcom/fm350-sms-delete.gcom >/dev/null 2>&1 ||
-			fail 'Unable to delete the SMS'
+		SMS_STORAGE="$storage" SMS_INDEX="$index" FM350_AT_LOCK_WAIT=2 timeout 35 /usr/sbin/fm350-gcom-locked -d "$device" -s /etc/gcom/fm350-sms-delete.gcom >/dev/null 2>&1 ||
+			fail 'Unable to delete the SMS or the modem is busy'
 		reply 1 'SMS deleted'
 		;;
 	*) fail 'Unsupported SMS action' 2 ;;
