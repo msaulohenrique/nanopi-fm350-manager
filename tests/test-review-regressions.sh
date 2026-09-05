@@ -40,7 +40,7 @@ grep -Fq "fm350_sms_text_is_basic \"\$text\"" overlay/rootfs/usr/sbin/fm350-sms
 # the remaining non-identity GSM byte positions must be rejected.
 grep -Fq '/usr/sbin/fm350-gcom-locked' "$xmm_patch"
 grep -Fq 'netifd_gcom_replacements != 6' "$xmm_patch"
-grep -Fq 'lock_dir=/tmp/fm350-at.lock' "$gcom_wrapper"
+grep -Fq 'FM350_AT_LOCK_DIR:-/tmp/fm350-at.lock' "$gcom_wrapper"
 grep -Fq 'gcom "$@"' "$gcom_wrapper"
 grep -Fq "*'@'*|*'\$'*|*'_'*) return 1 ;;" "$sms_lib"
 
@@ -60,4 +60,5 @@ for target in \
 	}
 done
 
+bash "$REPO_ROOT/tests/test-gcom-lock.sh"
 echo 'Historical PR review regression checks passed'
