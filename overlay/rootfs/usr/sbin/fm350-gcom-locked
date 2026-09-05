@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Serialize netifd/XMM AT sessions with the same lock used by the FM350 LuCI
+# helpers. Environment variables such as DEVPORT, CID, APN and PINCODE are
+# inherited by gcom unchanged.
+lock_dir=/tmp/fm350-at.lock
+max_wait=${FM350_AT_LOCK_WAIT:-30}
+waited=0
+lock_held=0
+
+cleanup() {
+	if [ "$lock_held" = 1 ]; then
+		rmdir "$lock_dir" 2>/dev/null || true
+		lock_held=0
+	fi
+}
+trap cleanup 0
+trap 'cleanup; exit 1' 1 2 15
+
+while ! mkdir "$lock_dir" 2>/dev/null; do
+	waited=$((waited + 1))
+	if [ "$waited" -ge "$max_wait" ]; then
+		echo 'Timed out waiting for the FM350 AT port lock' >&2
+		exit 75
+	fi
+	sleep 1
+done
+lock_held=1
+
+gcom "$@"
+rc=$?
+cleanup
+exit "$rc"
