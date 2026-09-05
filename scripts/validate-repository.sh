@@ -25,6 +25,7 @@ required=(
 	overlay/rootfs/usr/lib/fm350/signal.sh
 	overlay/rootfs/usr/lib/fm350/sms.sh
 	overlay/rootfs/usr/sbin/fm350-control
+	overlay/rootfs/usr/sbin/fm350-gcom-locked
 	overlay/rootfs/usr/sbin/fm350-radio
 	overlay/rootfs/usr/sbin/fm350-sms
 	overlay/rootfs/usr/sbin/fm350-find-port
@@ -127,6 +128,7 @@ python3 -m json.tool overlay/rootfs/usr/share/luci/menu.d/luci-app-fm350.json >/
 python3 -m json.tool overlay/rootfs/usr/share/rpcd/acl.d/luci-app-fm350.json >/dev/null
 bash -n overlay/rootfs/usr/lib/fm350/sms.sh
 bash -n overlay/rootfs/usr/sbin/fm350-control
+bash -n overlay/rootfs/usr/sbin/fm350-gcom-locked
 bash -n overlay/rootfs/usr/sbin/fm350-radio
 bash -n overlay/rootfs/usr/sbin/fm350-sms
 bash -n overlay/rootfs/usr/sbin/fm350-status
