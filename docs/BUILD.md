@@ -10,7 +10,28 @@ The repository contains only customization and orchestration code. It does not v
 - `friendlyarm/build-env-on-ubuntu-bionic`;
 - the official Gerrit `git-repo` mirror.
 
-The fingerprint excludes its generation timestamp and includes all build-input blobs from this repository. The same inputs therefore produce the same base firmware tag, while any firmware customization or upstream commit creates a new fingerprint.
+## Firmware identity versus build provenance
+
+`source-lock.json` deliberately contains two different hashes.
+
+### `fingerprint` — firmware release identity
+
+This is the only hash used to decide whether a new candidate release is needed. It includes only effective inputs that can define a different firmware source/recipe:
+
+- FriendlyWrt version;
+- the exact resolved commit of every project in `rk3528.xml` that is assembled for the board;
+- the exact `modemfeed` commit whose FM350 packages are copied into the build;
+- a hash of the local firmware recipe/customization: `config/07-fm350`, `overlay/`, `targets/rk3528_fm350.mk`, `apply-customizations.sh`, `build-rootfs.sh`, `build-image.sh` and `sync-sources.sh`.
+
+Changing a project commit, modemfeed commit or one of those local firmware inputs creates a different firmware fingerprint and therefore a new candidate.
+
+### `provenance_fingerprint` — audit trail
+
+This records broader build machinery, including the manifest repository commit, host build environment, `git-repo`, workflows, validators and other orchestration files. It makes a build auditable but **does not create a new firmware version by itself**.
+
+This separation prevents release spam. For example, changing another file in the FriendlyWrt manifests repository can move the repository HEAD while leaving `rk3528.xml` and all resolved board-project commits unchanged. Likewise an Actions workflow or host-tool update may change how CI is operated without changing the firmware source/recipe. Those changes remain visible in provenance, but the candidate workflow sees the same firmware fingerprint and skips the multi-hour build/release.
+
+`generated_at` is never part of either identity.
 
 ## Why build success is not boot success
 
@@ -20,18 +41,21 @@ GitHub Actions can compile U-Boot, kernel, rootfs and an SD image and can valida
 
 `.github/workflows/release.yml` creates only `candidate-*` prereleases.
 
-1. Resolve and fingerprint every upstream source.
-2. Skip when the exact candidate fingerprint already exists unless force-build is requested.
-3. Compile FriendlyWrt rootfs in one Ubuntu 22.04 job.
-4. Keep rootfs and host package manager temporarily in a draft candidate.
-5. Build U-Boot, kernel and the bootable SD image in a second job.
-6. Validate gzip integrity.
-7. Verify minimum raw/compressed size and partition-table structure.
-8. Verify that the first MiB is not entirely zero.
-9. Generate SHA-256 for the compressed image, raw image and source lock.
-10. Publish as a GitHub prerelease, never as `latest`.
-11. Download the published assets again and re-run checksum/gzip verification.
-12. On failure, remove an incomplete draft and create/update an automated failure issue.
+1. Resolve effective firmware inputs and the broader build provenance.
+2. Compute the firmware fingerprint and candidate tag.
+3. Skip when a candidate with the same firmware identity already exists, even if provenance changed.
+4. Compile FriendlyWrt rootfs in one Ubuntu 22.04 job only when a real firmware identity change exists.
+5. Keep rootfs and host package manager temporarily in a draft candidate.
+6. Build U-Boot, kernel and the bootable SD image in a second job.
+7. Validate gzip integrity.
+8. Verify minimum raw/compressed size and partition-table structure.
+9. Verify that the first MiB is not entirely zero.
+10. Generate SHA-256 for the compressed image, raw image and source lock.
+11. Publish as a GitHub prerelease, never as `latest`.
+12. Download the published assets again and re-run checksum/gzip verification.
+13. On failure, remove an incomplete draft and create/update an automated failure issue.
+
+If a newer source/recipe state reaches `main` while an older candidate is still compiling, Actions cancels the stale candidate workflow rather than publishing a superseded build.
 
 Public candidate builds intentionally do not inject `ROOT_PASSWORD_HASH` or `AUTHORIZED_KEYS`. The shared image therefore cannot accidentally contain one repository-wide password or a personal key.
 
@@ -61,6 +85,10 @@ It then:
 This promotion does not rebuild the firmware. Stable receives the exact `.img.gz`, `SHA256SUMS`, `RAW_IMAGE_SHA256` and `source-lock.json` that were physically tested.
 
 See [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md).
+
+## Historical release note
+
+The first successful automated release of the current pre-hardening firmware state was `friendlywrt-25.12-ba32f08b5120`, produced by Actions run #4 on 9 August 2026. Its Git tag still exists, but the GitHub Release object and binary assets were later deleted. Because the old workflow did not retain an Actions artifact copy, the original `.img.gz` cannot be cryptographically restored from GitHub after deletion. The tag is retained as historical provenance; a rebuild must never be presented as the original binary unless its checksum matches the original asset.
 
 ## Local build
 
@@ -104,10 +132,12 @@ A password hash embedded in any image can be extracted and attacked offline. Use
 
 ## Updating behavior
 
-- Upstream source changes are detected daily.
-- Recipe changes under `config/`, `overlay/`, `scripts/`, `targets/`, `tests/` or the release workflows trigger a new candidate after reaching `main`.
-- Dependabot proposes pinned GitHub Action updates.
-- A manual candidate run can select a FriendlyWrt version or force another candidate.
+- Effective upstream firmware-source changes are checked daily.
+- A new candidate is built only when the firmware fingerprint changes.
+- Provenance-only changes can run the lightweight prepare check but do not publish another candidate.
+- Firmware recipe changes under the effective customization paths trigger a new candidate after reaching `main`.
+- Dependabot can update pinned GitHub Actions without creating a firmware release when firmware inputs are unchanged.
+- A manual candidate run can select a FriendlyWrt version or explicitly force another candidate.
 - Stable promotion is always an explicit separate action after physical validation.
 
 Scheduled workflows run only from the default branch. GitHub may disable schedules in public repositories after long inactivity, so check the Actions page if no daily run appears.
